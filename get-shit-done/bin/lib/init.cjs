@@ -24,6 +24,16 @@ function getLatestCompletedMilestone(cwd) {
   }
 }
 
+/**
+ * Inject `project_root` into an init result object.
+ * Workflows use this to prefix `.planning/` paths correctly when Claude's CWD
+ * differs from the project root (e.g., inside a sub-repo).
+ */
+function withProjectRoot(cwd, result) {
+  result.project_root = cwd;
+  return result;
+}
+
 function cmdInitExecutePhase(cwd, phase, raw) {
   if (!phase) {
     error('phase required for init execute-phase');
@@ -95,7 +105,7 @@ function cmdInitExecutePhase(cwd, phase, raw) {
     config_path: '.planning/config.json',
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitPlanPhase(cwd, phase, raw) {
@@ -174,7 +184,7 @@ function cmdInitPlanPhase(cwd, phase, raw) {
     } catch { /* intentionally empty */ }
   }
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitNewProject(cwd, raw) {
@@ -242,7 +252,7 @@ function cmdInitNewProject(cwd, raw) {
     project_path: '.planning/PROJECT.md',
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitNewMilestone(cwd, raw) {
@@ -289,7 +299,7 @@ function cmdInitNewMilestone(cwd, raw) {
     state_path: '.planning/STATE.md',
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitQuick(cwd, description, raw) {
@@ -347,7 +357,7 @@ function cmdInitQuick(cwd, description, raw) {
 
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitResume(cwd, raw) {
@@ -379,7 +389,7 @@ function cmdInitResume(cwd, raw) {
     commit_docs: config.commit_docs,
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitVerifyWork(cwd, phase, raw) {
@@ -408,7 +418,7 @@ function cmdInitVerifyWork(cwd, phase, raw) {
     has_verification: phaseInfo?.has_verification || false,
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitPhaseOp(cwd, phase, raw) {
@@ -512,7 +522,7 @@ function cmdInitPhaseOp(cwd, phase, raw) {
     } catch { /* intentionally empty */ }
   }
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitTodos(cwd, area, raw) {
@@ -571,7 +581,7 @@ function cmdInitTodos(cwd, area, raw) {
     pending_dir_exists: pathExistsInternal(cwd, '.planning/todos/pending'),
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitMilestoneOp(cwd, raw) {
@@ -632,7 +642,7 @@ function cmdInitMilestoneOp(cwd, raw) {
     phases_dir_exists: pathExistsInternal(cwd, '.planning/phases'),
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitMapCodebase(cwd, raw) {
@@ -666,7 +676,7 @@ function cmdInitMapCodebase(cwd, raw) {
     codebase_dir_exists: pathExistsInternal(cwd, '.planning/codebase'),
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 function cmdInitProgress(cwd, raw) {
@@ -813,7 +823,7 @@ function cmdInitProgress(cwd, raw) {
     config_path: '.planning/config.json',
   };
 
-  output(result, raw);
+  output(withProjectRoot(cwd, result), raw);
 }
 
 module.exports = {
