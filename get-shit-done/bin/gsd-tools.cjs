@@ -135,7 +135,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { error, findProjectRoot } = require('./lib/core.cjs');
+const core = require('./lib/core.cjs');
+const { error, findProjectRoot, getActiveWorkstream } = core;
 const state = require('./lib/state.cjs');
 const phase = require('./lib/phase.cjs');
 const roadmap = require('./lib/roadmap.cjs');
@@ -148,6 +149,7 @@ const init = require('./lib/init.cjs');
 const frontmatter = require('./lib/frontmatter.cjs');
 const profilePipeline = require('./lib/profile-pipeline.cjs');
 const profileOutput = require('./lib/profile-output.cjs');
+const workstream = require('./lib/workstream.cjs');
 
 // ─── CLI Router ───────────────────────────────────────────────────────────────
 
@@ -185,6 +187,29 @@ async function main() {
     }
   }
 
+  // Optional workstream override for parallel milestone work.
+  // Priority: --ws flag > GSD_WORKSTREAM env var > active-workstream file > null (flat mode)
+  const wsEqArg = args.find(arg => arg.startsWith('--ws='));
+  const wsIdx = args.indexOf('--ws');
+  let ws = null;
+  if (wsEqArg) {
+    ws = wsEqArg.slice('--ws='.length).trim();
+    if (!ws) error('Missing value for --ws');
+    args.splice(args.indexOf(wsEqArg), 1);
+  } else if (wsIdx !== -1) {
+    ws = args[wsIdx + 1];
+    if (!ws || ws.startsWith('--')) error('Missing value for --ws');
+    args.splice(wsIdx, 2);
+  } else if (process.env.GSD_WORKSTREAM) {
+    ws = process.env.GSD_WORKSTREAM.trim();
+  } else {
+    ws = getActiveWorkstream(cwd);
+  }
+  // Set env var so all modules (planningDir, planningPaths) auto-resolve workstream paths
+  if (ws) {
+    process.env.GSD_WORKSTREAM = ws;
+  }
+
   const rawIndex = args.indexOf('--raw');
   const raw = rawIndex !== -1;
   if (rawIndex !== -1) args.splice(rawIndex, 1);
@@ -203,7 +228,7 @@ async function main() {
   const command = args[0];
 
   if (!command) {
-    error('Usage: gsd-tools <command> [args] [--raw] [--pick <field>] [--cwd <path>]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, config-new-project, init');
+    error('Usage: gsd-tools <command> [args] [--raw] [--pick <field>] [--cwd <path>] [--ws <name>]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, config-new-project, init, workstream');
   }
 
   // Multi-repo guard: resolve project root for commands that read/write .planning/.
@@ -859,6 +884,33 @@ async function runCommand(command, args, cwd, raw) {
       const autoFlag = args.includes('--auto');
       const forceFlag = args.includes('--force');
       profileOutput.cmdGenerateClaudeMd(cwd, { output: outputPath, auto: autoFlag, force: forceFlag }, raw);
+      break;
+    }
+
+    case 'workstream': {
+      const subcommand = args[1];
+      if (subcommand === 'create') {
+        const migrateNameIdx = args.indexOf('--migrate-name');
+        const noMigrate = args.includes('--no-migrate');
+        workstream.cmdWorkstreamCreate(cwd, args[2], {
+          migrate: !noMigrate,
+          migrateName: migrateNameIdx !== -1 ? args[migrateNameIdx + 1] : null,
+        }, raw);
+      } else if (subcommand === 'list') {
+        workstream.cmdWorkstreamList(cwd, raw);
+      } else if (subcommand === 'status') {
+        workstream.cmdWorkstreamStatus(cwd, args[2], raw);
+      } else if (subcommand === 'complete') {
+        workstream.cmdWorkstreamComplete(cwd, args[2], {}, raw);
+      } else if (subcommand === 'set') {
+        workstream.cmdWorkstreamSet(cwd, args[2], raw);
+      } else if (subcommand === 'get') {
+        workstream.cmdWorkstreamGet(cwd, raw);
+      } else if (subcommand === 'progress') {
+        workstream.cmdWorkstreamProgress(cwd, raw);
+      } else {
+        error('Unknown workstream subcommand. Available: create, list, status, complete, set, get, progress');
+      }
       break;
     }
 

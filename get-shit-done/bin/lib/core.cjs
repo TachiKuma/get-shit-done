@@ -523,23 +523,73 @@ function withPlanningLock(cwd, fn) {
   return fn();
 }
 
-/** Get the .planning directory path */
-function planningDir(cwd) {
+/**
+ * Get the .planning directory path, workstream-aware.
+ * When a workstream is active (via explicit ws arg or GSD_WORKSTREAM env var),
+ * returns `.planning/workstreams/{ws}/`. Otherwise returns `.planning/`.
+ *
+ * @param {string} cwd - project root
+ * @param {string} [ws] - explicit workstream name; if omitted, checks GSD_WORKSTREAM env var
+ */
+function planningDir(cwd, ws) {
+  if (ws === undefined) ws = process.env.GSD_WORKSTREAM || null;
+  if (!ws) return path.join(cwd, '.planning');
+  return path.join(cwd, '.planning', 'workstreams', ws);
+}
+
+/** Always returns the root .planning/ path, ignoring workstreams. For shared resources. */
+function planningRoot(cwd) {
   return path.join(cwd, '.planning');
 }
 
-/** Get common .planning file paths */
-function planningPaths(cwd) {
-  const base = path.join(cwd, '.planning');
+/**
+ * Get common .planning file paths, workstream-aware.
+ * Scoped paths (state, roadmap, phases, requirements) resolve to the active workstream.
+ * Shared paths (project, config) always resolve to the root .planning/.
+ */
+function planningPaths(cwd, ws) {
+  const base = planningDir(cwd, ws);
+  const root = path.join(cwd, '.planning');
   return {
     planning: base,
     state: path.join(base, 'STATE.md'),
     roadmap: path.join(base, 'ROADMAP.md'),
-    project: path.join(base, 'PROJECT.md'),
-    config: path.join(base, 'config.json'),
+    project: path.join(root, 'PROJECT.md'),
+    config: path.join(root, 'config.json'),
     phases: path.join(base, 'phases'),
     requirements: path.join(base, 'REQUIREMENTS.md'),
   };
+}
+
+// ─── Active Workstream Detection ─────────────────────────────────────────────
+
+/**
+ * Get the active workstream name from .planning/active-workstream file.
+ * Returns null if no active workstream or file doesn't exist.
+ */
+function getActiveWorkstream(cwd) {
+  const filePath = path.join(cwd, '.planning', 'active-workstream');
+  try {
+    const name = fs.readFileSync(filePath, 'utf-8').trim();
+    if (!name) return null;
+    const wsDir = path.join(cwd, '.planning', 'workstreams', name);
+    if (!fs.existsSync(wsDir)) return null;
+    return name;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set the active workstream. Pass null to clear.
+ */
+function setActiveWorkstream(cwd, name) {
+  const filePath = path.join(cwd, '.planning', 'active-workstream');
+  if (!name) {
+    try { fs.unlinkSync(filePath); } catch {}
+    return;
+  }
+  fs.writeFileSync(filePath, name + '\n', 'utf-8');
 }
 
 // ─── Phase utilities ──────────────────────────────────────────────────────────
@@ -650,11 +700,12 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
 function findPhaseInternal(cwd, phase) {
   if (!phase) return null;
 
-  const phasesDir = path.join(cwd, '.planning', 'phases');
+  const phasesDir = path.join(planningDir(cwd), 'phases');
   const normalized = normalizePhaseName(phase);
 
   // Search current phases first
-  const current = searchPhaseInDir(phasesDir, '.planning/phases', normalized);
+  const relPhasesDir = toPosixPath(path.relative(cwd, phasesDir));
+  const current = searchPhaseInDir(phasesDir, relPhasesDir, normalized);
   if (current) return current;
 
   // Search archived milestone phases (newest first)
@@ -753,7 +804,7 @@ function extractCurrentMilestone(content, cwd) {
   // 1. Get current milestone version from STATE.md frontmatter
   let version = null;
   try {
-    const statePath = path.join(cwd, '.planning', 'STATE.md');
+    const statePath = path.join(planningDir(cwd), 'STATE.md');
     if (fs.existsSync(statePath)) {
       const stateRaw = fs.readFileSync(statePath, 'utf-8');
       const milestoneMatch = stateRaw.match(/^milestone:\s*(.+)/m);
@@ -836,7 +887,7 @@ function replaceInCurrentMilestone(content, pattern, replacement) {
 
 function getRoadmapPhaseInternal(cwd, phaseNum) {
   if (!phaseNum) return null;
-  const roadmapPath = path.join(cwd, '.planning', 'ROADMAP.md');
+  const roadmapPath = path.join(planningDir(cwd), 'ROADMAP.md');
   if (!fs.existsSync(roadmapPath)) return null;
 
   try {
@@ -951,7 +1002,7 @@ function generateSlugInternal(text) {
 
 function getMilestoneInfo(cwd) {
   try {
-    const roadmap = fs.readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf-8');
+    const roadmap = fs.readFileSync(path.join(planningDir(cwd), 'ROADMAP.md'), 'utf-8');
 
     // First: check for list-format roadmaps using 🚧 (in-progress) marker
     // e.g. "- 🚧 **v2.1 Belgium** — Phases 24-28 (in progress)"
@@ -994,7 +1045,7 @@ function getMilestoneInfo(cwd) {
 function getMilestonePhaseFilter(cwd) {
   const milestonePhaseNums = new Set();
   try {
-    const roadmap = extractCurrentMilestone(fs.readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf-8'), cwd);
+    const roadmap = extractCurrentMilestone(fs.readFileSync(path.join(planningDir(cwd), 'ROADMAP.md'), 'utf-8'), cwd);
     // Match both numeric phases (Phase 1:) and custom IDs (Phase PROJ-42:)
     const phasePattern = /#{2,4}\s*Phase\s+([\w][\w.-]*)\s*:/gi;
     let m;
@@ -1058,5 +1109,8 @@ module.exports = {
   reapStaleTempFiles,
   MODEL_ALIAS_MAP,
   planningDir,
+  planningRoot,
   planningPaths,
+  getActiveWorkstream,
+  setActiveWorkstream,
 };
