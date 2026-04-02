@@ -147,6 +147,9 @@ coderabbit review --prompt-only 2>/dev/null > /tmp/gsd-review-coderabbit-{phase}
 **OpenCode (via GitHub Copilot):**
 ```bash
 cat /tmp/gsd-review-prompt-{phase}.md | opencode run - 2>/dev/null > /tmp/gsd-review-opencode-{phase}.md
+if [ ! -s /tmp/gsd-review-opencode-{phase}.md ]; then
+  echo "OpenCode review failed or returned empty output." > /tmp/gsd-review-opencode-{phase}.md
+fi
 ```
 
 If a CLI fails, log the error and continue with remaining CLIs.
