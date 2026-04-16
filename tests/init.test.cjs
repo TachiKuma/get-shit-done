@@ -67,6 +67,21 @@ describe('init commands', () => {
       'model_overrides must take precedence even when resolve_model_ids is omit');
   });
 
+  test('init execute-phase returns canonical response_language', () => {
+    const phaseDir = path.join(tmpDir, '.planning', 'phases', '01-foundation');
+    fs.mkdirSync(phaseDir, { recursive: true });
+    fs.writeFileSync(path.join(phaseDir, '01-01-PLAN.md'), '# Plan');
+    fs.writeFileSync(path.join(tmpDir, '.planning', 'config.json'), JSON.stringify({
+      response_language: 'Portuguese',
+    }));
+
+    const result = runGsdTools('init execute-phase 1 --raw', tmpDir, { HOME: tmpDir });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.response_language, 'pt-BR');
+  });
+
   test('init plan-phase returns file paths', () => {
     const phaseDir = path.join(tmpDir, '.planning', 'phases', '03-api');
     fs.mkdirSync(phaseDir, { recursive: true });
@@ -783,6 +798,19 @@ describe('cmdInitProgress', () => {
     assert.strictEqual(output.current_phase, null);
     assert.strictEqual(output.next_phase, null);
     assert.strictEqual(output.has_work_in_progress, false);
+  });
+
+  test('init progress returns canonical response_language when configured', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.planning', 'config.json'),
+      JSON.stringify({ response_language: 'Simplified Chinese' }, null, 2)
+    );
+
+    const result = runGsdTools('init progress', tmpDir, { HOME: tmpDir });
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.response_language, 'zh-CN');
   });
 
   test('multiple phases with mixed statuses', () => {

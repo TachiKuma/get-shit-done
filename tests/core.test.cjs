@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { createTempProject, createTempGitProject, cleanup } = require('./helpers.cjs');
+const { DEFAULT_LOCALE, normalizeLocale } = require('../get-shit-done/bin/lib/locale.cjs');
 
 const {
   loadConfig,
@@ -100,16 +101,22 @@ describe('loadConfig', () => {
     assert.strictEqual(config.model_overrides, null);
   });
 
-  test('reads response_language when set', () => {
+  test('normalizes response_language to canonical locale when set', () => {
     writeConfig({ response_language: 'Portuguese' });
     const config = loadConfig(tmpDir);
-    assert.strictEqual(config.response_language, 'Portuguese');
+    assert.strictEqual(config.response_language, 'pt-BR');
   });
 
   test('returns response_language as null when not set', () => {
     writeConfig({ model_profile: 'balanced' });
     const config = loadConfig(tmpDir);
     assert.strictEqual(config.response_language, null);
+  });
+
+  test('falls back unknown response_language values to default locale', () => {
+    writeConfig({ response_language: 'Martian' });
+    const config = loadConfig(tmpDir);
+    assert.strictEqual(config.response_language, DEFAULT_LOCALE);
   });
 
   test('returns defaults when config.json contains invalid JSON', () => {
@@ -187,6 +194,21 @@ describe('loadConfig', () => {
     t.after(() => { process.stderr.write = origWrite; });
     loadConfig(tmpDir);
     assert.strictEqual(stderrOutput, '', 'should not emit any warnings for valid config');
+  });
+});
+
+describe('locale helper', () => {
+  test('normalizes supported aliases to canonical locales', () => {
+    assert.strictEqual(normalizeLocale('English'), 'en');
+    assert.strictEqual(normalizeLocale('zh'), 'zh-CN');
+    assert.strictEqual(normalizeLocale('Japanese'), 'ja-JP');
+    assert.strictEqual(normalizeLocale('ko'), 'ko-KR');
+    assert.strictEqual(normalizeLocale('Portuguese'), 'pt-BR');
+  });
+
+  test('returns null for empty locale input', () => {
+    assert.strictEqual(normalizeLocale('   '), null);
+    assert.strictEqual(normalizeLocale(null), null);
   });
 });
 

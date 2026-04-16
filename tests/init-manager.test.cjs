@@ -519,7 +519,7 @@ describe('init manager', () => {
     const result = runGsdTools('init manager', tmpDir);
     const output = JSON.parse(result.output);
 
-    assert.strictEqual(output.response_language, 'Japanese');
+    assert.strictEqual(output.response_language, 'ja-JP');
   });
 
   test('output omits response_language when not configured', () => {
