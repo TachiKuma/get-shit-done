@@ -1,0 +1,274 @@
+{
+  "phase": "02-canonical",
+  "plan": "01",
+  "generated_at": "2026-04-16",
+  "scope": {
+    "canonical_source_of_truth": "docs/README.md",
+    "root_entry_set": [
+      "README.md",
+      "README.zh-CN.md",
+      "README.ja-JP.md",
+      "README.ko-KR.md",
+      "README.pt-BR.md"
+    ],
+    "canonical_docs_top_level": [
+      "AGENTS.md",
+      "ARCHITECTURE.md",
+      "CLI-TOOLS.md",
+      "COMMANDS.md",
+      "CONFIGURATION.md",
+      "FEATURES.md",
+      "README.md",
+      "USER-GUIDE.md",
+      "context-monitor.md",
+      "manual-update.md",
+      "workflow-discuss-mode.md"
+    ],
+    "target_locales": [
+      "en",
+      "zh-CN",
+      "ja-JP",
+      "ko-KR",
+      "pt-BR"
+    ]
+  },
+  "root_readme": {
+    "canonical_language_matrix": [
+      "en",
+      "pt-BR",
+      "zh-CN",
+      "ja-JP",
+      "ko-KR"
+    ],
+    "en": {
+      "entry_file": "README.md",
+      "exists": true,
+      "language_switches": [
+        "en",
+        "pt-BR",
+        "zh-CN",
+        "ja-JP",
+        "ko-KR"
+      ],
+      "missing_from_matrix": [],
+      "status": "aligned"
+    },
+    "zh-CN": {
+      "entry_file": "README.zh-CN.md",
+      "exists": true,
+      "language_switches": [
+        "en",
+        "pt-BR",
+        "zh-CN",
+        "ja-JP",
+        "ko-KR"
+      ],
+      "missing_from_matrix": [],
+      "status": "aligned"
+    },
+    "ja-JP": {
+      "entry_file": "README.ja-JP.md",
+      "exists": true,
+      "language_switches": [
+        "en",
+        "pt-BR",
+        "zh-CN",
+        "ja-JP"
+      ],
+      "missing_from_matrix": [
+        "ko-KR"
+      ],
+      "status": "root_language_nav_gap"
+    },
+    "ko-KR": {
+      "entry_file": "README.ko-KR.md",
+      "exists": true,
+      "language_switches": [
+        "en",
+        "pt-BR",
+        "zh-CN",
+        "ja-JP",
+        "ko-KR"
+      ],
+      "missing_from_matrix": [],
+      "status": "aligned"
+    },
+    "pt-BR": {
+      "entry_file": "README.pt-BR.md",
+      "exists": true,
+      "language_switches": [
+        "en",
+        "pt-BR",
+        "zh-CN",
+        "ja-JP"
+      ],
+      "missing_from_matrix": [
+        "ko-KR"
+      ],
+      "status": "root_language_nav_gap"
+    }
+  },
+  "docs_index": {
+    "canonical_source": "docs/README.md",
+    "expected_role": "canonical docs index for every locale mirror",
+    "en": {
+      "entry_file": "docs/README.md",
+      "exists": true,
+      "role": "canonical",
+      "language_switch_status": "missing ko-KR link in current line",
+      "structural_status": "canonical_baseline"
+    },
+    "zh-CN": {
+      "entry_file": "docs/zh-CN/README.md",
+      "exists": true,
+      "role": "mirror",
+      "structural_status": "drifted",
+      "mirror_target_drift": "Current content behaves like a localized root README instead of mirroring docs/README.md as the docs index.",
+      "language_switch_status": "missing docs-level language versions line",
+      "primary_evidence": [
+        "Title is GET SHIT DONE instead of a docs index title",
+        "Contains badge wall and long product-style sections",
+        "Lacks docs catalog table structure from docs/README.md"
+      ]
+    },
+    "ja-JP": {
+      "entry_file": "docs/ja-JP/README.md",
+      "exists": true,
+      "role": "mirror",
+      "structural_status": "near_mirror",
+      "language_switch_status": "missing docs-level language versions line",
+      "notes": [
+        "Docs catalog table is present",
+        "Quick links are present"
+      ]
+    },
+    "ko-KR": {
+      "entry_file": "docs/ko-KR/README.md",
+      "exists": true,
+      "role": "mirror",
+      "structural_status": "near_mirror",
+      "language_switch_status": "has locale line but needs later link normalization review",
+      "notes": [
+        "Docs catalog table is present",
+        "Quick links are present"
+      ]
+    },
+    "pt-BR": {
+      "entry_file": "docs/pt-BR/README.md",
+      "exists": true,
+      "role": "mirror",
+      "structural_status": "near_mirror",
+      "language_switch_status": "missing docs-level language versions line",
+      "notes": [
+        "Docs catalog table is present",
+        "Quick links are present"
+      ]
+    }
+  },
+  "docs_catalog": {
+    "canonical_locale": "en",
+    "canonical_source": "docs/README.md",
+    "en": {
+      "entry_file": "docs/README.md",
+      "present": [
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "CLI-TOOLS.md",
+        "COMMANDS.md",
+        "CONFIGURATION.md",
+        "FEATURES.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "context-monitor.md",
+        "manual-update.md",
+        "workflow-discuss-mode.md"
+      ],
+      "missing": [],
+      "coverage_ratio": "11/11",
+      "coverage_status": "canonical_complete"
+    },
+    "zh-CN": {
+      "entry_file": "docs/zh-CN/README.md",
+      "present": [
+        "README.md",
+        "USER-GUIDE.md"
+      ],
+      "missing": [
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "CLI-TOOLS.md",
+        "COMMANDS.md",
+        "CONFIGURATION.md",
+        "FEATURES.md",
+        "context-monitor.md",
+        "manual-update.md",
+        "workflow-discuss-mode.md"
+      ],
+      "coverage_ratio": "2/11",
+      "coverage_status": "high_gap",
+      "extra_localized_assets_outside_phase_scope": [
+        "docs/zh-CN/references/"
+      ]
+    },
+    "ja-JP": {
+      "entry_file": "docs/ja-JP/README.md",
+      "present": [
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "CLI-TOOLS.md",
+        "COMMANDS.md",
+        "CONFIGURATION.md",
+        "FEATURES.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "context-monitor.md",
+        "workflow-discuss-mode.md"
+      ],
+      "missing": [
+        "manual-update.md"
+      ],
+      "coverage_ratio": "10/11",
+      "coverage_status": "near_complete"
+    },
+    "ko-KR": {
+      "entry_file": "docs/ko-KR/README.md",
+      "present": [
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "CLI-TOOLS.md",
+        "COMMANDS.md",
+        "CONFIGURATION.md",
+        "FEATURES.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "context-monitor.md",
+        "workflow-discuss-mode.md"
+      ],
+      "missing": [
+        "manual-update.md"
+      ],
+      "coverage_ratio": "10/11",
+      "coverage_status": "near_complete"
+    },
+    "pt-BR": {
+      "entry_file": "docs/pt-BR/README.md",
+      "present": [
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "CLI-TOOLS.md",
+        "COMMANDS.md",
+        "CONFIGURATION.md",
+        "FEATURES.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "context-monitor.md",
+        "workflow-discuss-mode.md"
+      ],
+      "missing": [
+        "manual-update.md"
+      ],
+      "coverage_ratio": "10/11",
+      "coverage_status": "near_complete"
+    }
+  }
+}
