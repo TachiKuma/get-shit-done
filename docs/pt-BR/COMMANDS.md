@@ -1,99 +1,28 @@
-# Referência de Comandos do GSD
+# Resumo de Comandos do GSD
 
-Este documento descreve os comandos principais do GSD em Português.  
-Para detalhes completos de flags avançadas e mudanças recentes, consulte também a [versão em inglês](../COMMANDS.md).
-
----
-
-## Fluxo Principal
-
-| Comando | Finalidade | Quando usar |
-|---------|------------|-------------|
-| `/gsd-new-project` | Inicialização completa: perguntas, pesquisa, requisitos e roadmap | Início de projeto |
-| `/gsd-discuss-phase [N]` | Captura decisões de implementação (`--chain`, `--power`) | Antes do planejamento |
-| `/gsd-ui-phase [N]` | Gera contrato de UI (`UI-SPEC.md`) | Fases com frontend |
-| `/gsd-plan-phase [N]` | Pesquisa + planejamento + verificação | Antes de executar uma fase |
-| `/gsd-execute-phase <N>` | Executa planos em ondas paralelas | Após planejamento aprovado |
-| `/gsd-verify-work [N]` | UAT manual com diagnóstico automático | Após execução |
-| `/gsd-ship [N]` | Cria PR da fase validada | Ao concluir a fase |
-| `/gsd-next` | Detecta e executa o próximo passo lógico | Qualquer momento |
-| `/gsd-fast <texto>` | Tarefa curta sem planejamento completo | Ajustes triviais |
-
-## Navegação e Sessão
-
-| Comando | Finalidade |
-|---------|------------|
-| `/gsd-progress` | Mostra status atual e próximos passos |
-| `/gsd-resume-work` | Retoma contexto da sessão anterior |
-| `/gsd-pause-work` | Salva handoff estruturado |
-| `/gsd-session-report` | Gera resumo da sessão |
-| `/gsd-autonomous` | Executa todas as fases restantes de forma autônoma (`--from N`, `--to N`, `--only N`) |
-| `/gsd-help` | Lista comandos e uso |
-| `/gsd-update` | Atualiza o GSD |
-
-## Gestão de Fases
-
-| Comando | Finalidade |
-|---------|------------|
-| `/gsd-add-phase` | Adiciona fase no roadmap |
-| `/gsd-insert-phase [N]` | Insere trabalho urgente entre fases |
-| `/gsd-remove-phase [N]` | Remove fase futura e reenumera |
-| `/gsd-list-phase-assumptions [N]` | Mostra abordagem assumida pelo Claude |
-| `/gsd-plan-milestone-gaps` | Cria fases para fechar lacunas de auditoria |
-
-## Brownfield e Utilidades
-
-| Comando | Finalidade |
-|---------|------------|
-| `/gsd-map-codebase` | Mapeia base existente antes de novo projeto |
-| `/gsd-quick` | Tarefas ad-hoc com garantias do GSD |
-| `/gsd-debug [desc]` | Debug sistemático com estado persistente (`--diagnose` para modo diagnóstico) |
-| `/gsd-analyze-dependencies` | Detecta dependências entre fases e sugere `Depends on` no ROADMAP.md (v1.32) |
-| `/gsd-forensics` | Diagnóstico de falhas no workflow |
-| `/gsd-settings` | Configuração de agentes, perfil e toggles |
-| `/gsd-set-profile <perfil>` | Troca rápida de perfil de modelo |
-
-## Qualidade de Código
-
-| Comando | Finalidade |
-|---------|------------|
-| `/gsd-review` | Peer review com múltiplas IAs |
-| `/gsd-pr-branch` | Cria branch limpa sem commits de planejamento |
-| `/gsd-audit-uat` | Audita dívida de validação/UAT |
-
-## Backlog e Threads
-
-| Comando | Finalidade |
-|---------|------------|
-| `/gsd-add-backlog <desc>` | Adiciona item no backlog (999.x) |
-| `/gsd-review-backlog` | Promove, mantém ou remove itens |
-| `/gsd-plant-seed <ideia>` | Registra ideia com gatilho futuro |
-| `/gsd-thread [nome]` | Gerencia threads persistentes |
-
-## Gerenciamento de Estado
-
-| Comando | Finalidade |
-|---------|------------|
-| `state validate` | Detecta drift entre STATE.md e o filesystem real |
-| `state sync` | Reconstrói STATE.md a partir do estado real no disco |
-| `state sync --verify` | Dry-run: mostra mudanças propostas sem gravar |
-| `state planned-phase --phase N --plans N` | Registra transição de estado após plan-phase |
-
-```bash
-node gsd-tools.cjs state validate          # Detectar drift
-node gsd-tools.cjs state sync --verify     # Prévia do que sync mudaria
-node gsd-tools.cjs state sync              # Reconstruir STATE.md a partir do disco
-```
+> Esta página é um summary em `pt-BR`. Para sintaxe completa, todos os flags e exemplos detalhados, use a [English canonical](../COMMANDS.md).
 
 ---
 
-## Exemplo rápido
+## Posicionamento da página
 
-```bash
-/gsd-new-project
-/gsd-discuss-phase 1
-/gsd-plan-phase 1
-/gsd-execute-phase 1
-/gsd-verify-work 1
-/gsd-ship 1
-```
+- Este documento fornece apenas resumo e navegação.
+- Ele não é um mirror completo do conteúdo em `commands/gsd/*.md`.
+- No escopo da Phase 04, cobrimos só os comandos centrais do fluxo principal.
+- Flags avançadas, comandos fora do lote inicial e detalhes recentes fazem fallback para a [English canonical](../COMMANDS.md).
+
+## Resumo dos comandos centrais
+
+| Command | Finalidade | Fallback |
+|---------|------------|----------|
+| `/gsd-progress` | Mostrar progresso atual, contexto recente e próximo passo recomendado | Veja a [English canonical](../COMMANDS.md) |
+| `/gsd-discuss-phase [N]` | Capturar decisões de implementação antes do planning | Veja a [English canonical](../COMMANDS.md) |
+| `/gsd-plan-phase [N]` | Executar research, planning e verification da fase | Veja a [English canonical](../COMMANDS.md) |
+| `/gsd-execute-phase <N>` | Executar os planos da fase e avançar para SUMMARY e verificação | Veja a [English canonical](../COMMANDS.md) |
+| `/gsd-next` | Detectar automaticamente o próximo passo lógico do workflow | Veja a [English canonical](../COMMANDS.md) |
+
+## Regras de fallback
+
+- Esta página é summary only.
+- A fonte completa de syntax, flags, options e examples continua sendo a [English canonical](../COMMANDS.md).
+- Command IDs, paths, code e tool names permanecem em inglês.

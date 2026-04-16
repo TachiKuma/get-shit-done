@@ -11,7 +11,7 @@ Get Shit Done（GSD）框架文档索引。英文 [`../README.md`](../README.md)
 | [用户指南](USER-GUIDE.md) | 已同步 | 首批 `zh-CN` 高价值入口，覆盖工作流、排障与恢复 |
 | [架构](../ARCHITECTURE.md) | 回退英文 | 系统架构、代理模型、数据流与内部设计 |
 | [功能参考](../FEATURES.md) | 回退英文 | 功能与需求的完整说明 |
-| [命令参考](../COMMANDS.md) | 回退英文 | 所有命令、参数、示例与行为说明 |
+| [命令摘要](COMMANDS.md) | 已提供中文摘要 | 主闭环命令的用途、典型时机与 English canonical 回退路径 |
 | [配置参考](../CONFIGURATION.md) | 回退英文 | 配置 schema、工作流开关、模型 profile 与 Git 分支策略 |
 | [CLI 工具参考](../CLI-TOOLS.md) | 回退英文 | `gsd-tools.cjs` 的程序化接口 |
 | [代理参考](../AGENTS.md) | 回退英文 | 专用代理、职责与协作模式 |
@@ -23,7 +23,8 @@ Get Shit Done（GSD）框架文档索引。英文 [`../README.md`](../README.md)
 
 - **开始使用：** [根 README](../../README.zh-CN.md) → 安装 → `/gsd-new-project`
 - **首批中文闭环：** [用户指南](USER-GUIDE.md)
-- **查看全部命令：** [命令参考](../COMMANDS.md)（回退英文）
+- **查看命令摘要：** [命令摘要](COMMANDS.md)（主闭环命令已提供中文摘要）
+- **查看完整命令细节：** [English canonical 命令参考](../COMMANDS.md)
 - **调整配置：** [配置参考](../CONFIGURATION.md)（回退英文）
 - **源码安装或无 npm 环境：** [manual-update.md](../manual-update.md)（回退英文）
 
