@@ -2,9 +2,9 @@
 
 # GET SHIT DONE
 
-[English](README.md) · [Português](README.pt-BR.md) · **简体中文** · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md)
+[English](README.md) · [Português](README.pt-BR.md) · **[简体中文](README.zh-CN.md)** · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md)
 
-**一个轻量但强大的元提示、上下文工程与规格驱动开发系统，适用于 Claude Code、OpenCode、Gemini CLI、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、CodeBuddy 和 Cline。**
+**一个轻量但强大的元提示、上下文工程与规格驱动开发系统，适用于 Claude Code、OpenCode、Gemini CLI、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy 和 Cline。**
 
 **它解决的是 context rot：随着 Claude 的上下文窗口被填满，输出质量逐步劣化的问题。**
 
@@ -41,7 +41,7 @@ npx get-shit-done-cc@latest
 
 **已被 Amazon、Google、Shopify 和 Webflow 的工程师采用。**
 
-[我为什么做这个](#我为什么做这个) · [它是怎么工作的](#它是怎么工作的) · [命令](#命令) · [为什么它有效](#为什么它有效) · [用户指南](docs/USER-GUIDE.md)
+[我为什么做这个](#我为什么做这个) · [它是怎么工作的](#它是怎么工作的) · [命令](#命令) · [为什么它有效](#为什么它有效) · [用户指南](docs/zh-CN/USER-GUIDE.md)
 
 </div>
 
@@ -73,15 +73,10 @@ GSD 解决的就是这个问题。它是让 Claude Code 变得可靠的上下文
 
 适合那些想把自己的需求说明白，然后让系统正确构建出来的人，而不是假装自己在运营一个 50 人工程组织的人。
 
-### v1.32.0 亮点
+### 当前版本说明
 
-- **STATE.md 一致性检查** — `state validate` 检测 STATE.md 与文件系统之间的偏差；`state sync` 从实际项目状态重建
-- **`--to N` 标志** — 在完成特定阶段后停止自主执行
-- **研究门控** — 当 RESEARCH.md 有未解决的开放问题时阻止规划
-- **验证里程碑范围过滤** — 后续阶段将处理的差距标记为"延迟"而非差距
-- **读取后编辑保护** — 咨询性 hook 防止非 Claude 运行时的无限重试循环
-- **上下文缩减** — Markdown 截断和缓存友好的 prompt 排序，降低 token 使用量
-- **4 个新运行时** — Trae、Kilo、Augment 和 Cline（共 12 个运行时）
+- 最新版本亮点、完整运行时矩阵和安装细节以 [English README](README.md#v1360-highlights) 与 [CHANGELOG](CHANGELOG.md) 为准。
+- 当前中文 README 主要提供高价值入口、基础安装说明和本地化导航；若细节与英文 canonical 不一致，请优先回退英文。
 
 ---
 
@@ -92,11 +87,11 @@ npx get-shit-done-cc@latest
 ```
 
 安装器会提示你选择：
-1. **运行时**：Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、CodeBuddy、Cline，或全部
+1. **运行时**：Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy、Cline，或全部
 2. **安装位置**：全局（所有项目）或本地（仅当前项目）
 
 安装后可这样验证：
-- Claude Code / Gemini / Copilot / Antigravity：`/gsd-help`
+- Claude Code / Gemini / Copilot / Antigravity / Qwen Code：`/gsd-help`
 - OpenCode / Kilo / Augment / Trae / CodeBuddy：`/gsd-help`
 - Codex：`$gsd-help`
 - Cline：GSD 通过 `.clinerules` 安装 — 检查 `.clinerules` 是否存在
@@ -637,7 +632,7 @@ lmn012o feat(08-02): create registration endpoint
 
 ## 配置
 
-GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-project` 时配置，也可以稍后通过 `/gsd-settings` 修改。完整的配置 schema、工作流开关、git branching 选项以及各代理的模型分配，请查看[用户指南](docs/USER-GUIDE.md#configuration-reference)。
+GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-project` 时配置，也可以稍后通过 `/gsd-settings` 修改。完整的配置 schema、工作流开关、git branching 选项以及各代理的模型分配，请查看[用户指南](docs/zh-CN/USER-GUIDE.md)。
 
 ### 核心设置
 

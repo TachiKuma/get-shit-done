@@ -2,7 +2,9 @@
 
 Get Shit Done (GSD) 프레임워크의 종합 문서입니다. GSD는 AI 코딩 에이전트를 위한 메타 프롬프팅, 컨텍스트 엔지니어링, 스펙 기반 개발 시스템입니다.
 
-언어 버전: [English](README.md) · [Português (pt-BR)](pt-BR/README.md) · [日本語](ja-JP/README.md) · [简体中文](zh-CN/README.md) · [한국어](ko-KR/README.md)
+언어 버전: [English](../README.md) · [Português (pt-BR)](../pt-BR/README.md) · [日本語](../ja-JP/README.md) · [简体中文](../zh-CN/README.md) · [한국어](README.md)
+
+영문 [`../README.md`](../README.md)이 canonical docs index입니다. 이 페이지는 한국어 mirror이며, 동일한 문서 인덱스 구조를 유지하고 아직 번역되지 않은 항목은 영어 fallback으로 명시합니다.
 
 ## 문서 목차
 
@@ -20,10 +22,11 @@ Get Shit Done (GSD) 프레임워크의 종합 문서입니다. GSD는 AI 코딩 
 
 ## 빠른 링크
 
-- **v1.32의 새로운 기능:** STATE.md 일관성 게이트, `--to N` 자율 모드, 리서치 게이트, 검증자 마일스톤 범위 필터링, read-before-edit 가드, 컨텍스트 축소, 신규 런타임(Trae, Cline, Augment Code), 응답 언어 설정, `--power`/`--diagnose` 플래그, `/gsd-analyze-dependencies`
+- **최신 릴리스 노트:** [CHANGELOG](../CHANGELOG.md) 와 canonical [English README](../README.md#v1360-highlights) 를 참조하세요
 - **시작하기:** [README](../README.md) → 설치 → `/gsd-new-project`
 - **전체 워크플로우 안내:** [User Guide](USER-GUIDE.md)
 - **모든 명령어 한눈에 보기:** [Command Reference](COMMANDS.md)
 - **GSD 설정하기:** [Configuration Reference](CONFIGURATION.md)
 - **시스템 내부 동작 원리:** [Architecture](ARCHITECTURE.md)
 - **기여 또는 확장:** [CLI Tools Reference](CLI-TOOLS.md) + [Agent Reference](AGENTS.md)
+- **수동 업데이트:** [manual-update.md](../manual-update.md) 는 아직 한국어 mirror가 없으므로 영어 fallback 문서로 사용합니다.

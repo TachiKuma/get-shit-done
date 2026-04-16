@@ -2,6 +2,10 @@
 
 Documentação abrangente do framework Get Shit Done (GSD) — um sistema de meta-prompting, engenharia de contexto e desenvolvimento orientado por especificações para agentes de IA.
 
+Versões de idioma: [English](../README.md) · **Português (pt-BR)** · [日本語](../ja-JP/README.md) · [简体中文](../zh-CN/README.md) · [한국어](../ko-KR/README.md)
+
+A página em inglês [`../README.md`](../README.md) é o canonical docs index. Esta página funciona como mirror em português e deve expor lacunas e fallbacks em vez de sugerir paridade total.
+
 ## Índice da documentação
 
 | Documento | Público | Descrição |
@@ -15,12 +19,12 @@ Documentação abrangente do framework Get Shit Done (GSD) — um sistema de met
 | [Ferramentas CLI](CLI-TOOLS.md) | Contribuidores, autores de agentes | API programática `gsd-tools.cjs` |
 | [Monitor de contexto](context-monitor.md) | Todos os usuários | Arquitetura de monitoramento da janela de contexto |
 | [Discuss Mode](workflow-discuss-mode.md) | Todos os usuários | Modo suposições vs entrevista no `discuss-phase` |
-| [Referências](references/) | Todos os usuários | Guias complementares de decisão, verificação e padrões |
-| [Superpowers](superpowers/) | Contribuidores | Planos e specs avançadas do projeto |
+| [Referências](../references/) | Todos os usuários | Guias complementares de decisão, verificação e padrões (fallback em inglês) |
+| [Superpowers](../superpowers/) | Contribuidores | Planos e specs avançadas do projeto (fallback em inglês) |
 
-## Novidades v1.32
+## Novidades
 
-STATE.md consistency gates, `--to N` para execução autônoma parcial, research gate, verifier milestone scope filtering, read-before-edit guard, context reduction, novos runtimes (Trae, Cline, Augment Code), `response_language`, `--power`/`--diagnose` flags, `/gsd-analyze-dependencies`.
+Para a versão mais recente, consulte o [CHANGELOG](../CHANGELOG.md) e o README canônico em inglês.
 
 ## Links rápidos
 
@@ -29,6 +33,7 @@ STATE.md consistency gates, `--to N` para execução autônoma parcial, research
 - **Comandos:** [Referência de comandos](COMMANDS.md)
 - **Configuração:** [Referência de configuração](CONFIGURATION.md)
 - **Arquitetura interna:** [Arquitetura](ARCHITECTURE.md)
+- **Atualização manual:** [manual-update.md](../manual-update.md) permanece em inglês como fallback conhecido.
 
 > [!NOTE]
 > Esta pasta `pt-BR` contém a versão em Português dos documentos de uso geral. Documentação técnica avançada ainda referencia os arquivos em inglês para manter precisão e atualização.

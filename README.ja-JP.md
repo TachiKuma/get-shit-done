@@ -2,9 +2,9 @@
 
 # GET SHIT DONE
 
-[English](README.md) · [Português](README.pt-BR.md) · [简体中文](README.zh-CN.md) · **日本語**
+[English](README.md) · [Português](README.pt-BR.md) · [简体中文](README.zh-CN.md) · **[日本語](README.ja-JP.md)** · [한국어](README.ko-KR.md)
 
-**Claude Code、OpenCode、Gemini CLI、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Cline向けの軽量かつ強力なメタプロンプティング、コンテキストエンジニアリング、仕様駆動開発システム。**
+**Claude Code、OpenCode、Gemini CLI、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy、Cline向けの軽量かつ強力なメタプロンプティング、コンテキストエンジニアリング、仕様駆動開発システム。**
 
 **コンテキストロット（Claudeがコンテキストウィンドウを消費するにつれ品質が劣化する現象）を解決します。**
 
@@ -75,15 +75,10 @@ GSDはそれを解決します。Claude Codeを信頼性の高いものにする
 
 ビルトインの品質ゲートが本当の問題を検出します：スキーマドリフト検出はマイグレーション漏れのORM変更をフラグし、セキュリティ強制は検証を脅威モデルに紐付け、スコープ削減検出はプランナーが要件を暗黙的に落とすのを防止します。
 
-### v1.32.0 ハイライト
+### 現在のバージョン案内
 
-- **STATE.md整合性ゲート** — `state validate`がSTATE.mdとファイルシステムの差分を検出、`state sync`が実際のプロジェクト状態から再構築
-- **`--to N`フラグ** — 自律実行を特定のフェーズ完了後に停止
-- **リサーチゲート** — RESEARCH.mdに未解決の質問がある場合、計画をブロック
-- **検証マイルストーンスコープフィルタリング** — 後のフェーズで対処されるギャップは「ギャップ」ではなく「延期」としてマーク
-- **読み取り後編集ガード** — 非Claudeランタイムでの無限リトライループを防止するアドバイザリーフック
-- **コンテキスト削減** — Markdownのトランケーションとキャッシュフレンドリーなプロンプト順序でトークン使用量を削減
-- **4つの新ランタイム** — Trae、Kilo、Augment、Cline（合計12ランタイム）
+- 最新のハイライト、完全なランタイム対応状況、インストール詳細は [English README](README.md#v1360-highlights) と [CHANGELOG](CHANGELOG.md) を基準にしてください。
+- この日本語 README は高価値の導線と基本的な利用案内を優先する mirror です。詳細が英語 canonical と異なる場合は英語版を優先してください。
 
 ---
 
@@ -94,12 +89,12 @@ npx get-shit-done-cc@latest
 ```
 
 インストーラーが以下の選択を求めます：
-1. **ランタイム** — Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Cline、またはすべて（インタラクティブ複数選択 — 1回のインストールセッションで複数のランタイムを選択可能）
+1. **ランタイム** — Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy、Cline、またはすべて（インタラクティブ複数選択 — 1回のインストールセッションで複数のランタイムを選択可能）
 2. **インストール先** — グローバル（全プロジェクト）またはローカル（現在のプロジェクトのみ）
 
 確認方法：
-- Claude Code / Gemini / Copilot / Antigravity: `/gsd-help`
-- OpenCode / Kilo / Augment / Trae: `/gsd-help`
+- Claude Code / Gemini / Copilot / Antigravity / Qwen Code: `/gsd-help`
+- OpenCode / Kilo / Augment / Trae / CodeBuddy: `/gsd-help`
 - Codex: `$gsd-help`
 - Cline: GSDは`.clinerules`経由でインストール — `.clinerules`の存在を確認
 
@@ -654,7 +649,7 @@ lmn012o feat(08-02): create registration endpoint
 
 ## 設定
 
-GSDはプロジェクト設定を `.planning/config.json` に保存します。`/gsd-new-project` 実行時に設定するか、後から `/gsd-settings` で更新できます。完全な設定スキーマ、ワークフロートグル、gitブランチオプション、エージェントごとのモデル内訳については、[ユーザーガイド](docs/ja-JP/USER-GUIDE.md#configuration-reference)をご覧ください。
+GSDはプロジェクト設定を `.planning/config.json` に保存します。`/gsd-new-project` 実行時に設定するか、後から `/gsd-settings` で更新できます。完全な設定スキーマ、ワークフロートグル、gitブランチオプション、エージェントごとのモデル内訳については、[ユーザーガイド](docs/ja-JP/USER-GUIDE.md)をご覧ください。
 
 ### コア設定
 

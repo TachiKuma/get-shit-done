@@ -74,7 +74,7 @@ AGENT_SKILLS=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" agent-skills
 
 Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`.
 
-**If `response_language` is set:** Include `response_language: {value}` in all spawned subagent prompts so any user-facing output stays in the configured language.
+**If `response_language` is set:** Treat it as a normalized canonical locale (for example `en`, `zh-CN`, `ja-JP`, `ko-KR`, `pt-BR`) and include `response_language: {value}` in all spawned subagent prompts so any user-facing output stays in the configured language. Commands, paths, code, and key technical terms remain in English.
 
 Read worktree config:
 

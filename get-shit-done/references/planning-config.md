@@ -39,8 +39,17 @@ Configuration options for `.planning/` directory behavior.
 | `manager.flags.discuss` | `""` | Flags passed to `/gsd-discuss-phase` when dispatched from manager (e.g. `"--auto --analyze"`) |
 | `manager.flags.plan` | `""` | Flags passed to plan workflow when dispatched from manager |
 | `manager.flags.execute` | `""` | Flags passed to execute workflow when dispatched from manager |
-| `response_language` | `null` | Language for user-facing questions and prompts across all phases/subagents (e.g. `"Portuguese"`, `"Japanese"`, `"Spanish"`). When set, all spawned agents include a directive to respond in this language. |
+| `response_language` | `null` | Language for user-facing questions and prompts across all phases/subagents. Recommended values use BCP 47 canonical locale tags such as `"en"` and `"zh-CN"`. Legacy aliases and natural-language names remain input-compatible only at the boundary, then normalize to a canonical locale. |
 </config_schema>
+
+<response_language_contract>
+
+- Recommended values use BCP 47 canonical locale tags such as `en`, `zh-CN`, `ja-JP`, `ko-KR`, and `pt-BR`.
+- Alias compatibility exists only at the input boundary; internal runtime objects, workflows, and locale catalogs consume canonical locale values only.
+- First-batch fallback order is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
+- Commands, paths, code snippets, file names, and key technical terms remain in English.
+
+</response_language_contract>
 
 <commit_docs_behavior>
 
@@ -232,7 +241,7 @@ Generated from `CONFIG_DEFAULTS` (core.cjs) and `VALID_CONFIG_KEYS` (config.cjs)
 | `search_gitignored` | boolean | `false` | `true`, `false` | Include gitignored paths in broad rg searches via `--no-ignore` |
 | `phase_naming` | string | `"sequential"` | `"sequential"`, `"custom"` | Phase numbering: auto-increment or arbitrary string IDs |
 | `project_code` | string\|null | `null` | Any short string | Prefix for phase dirs (e.g., `"CK"` produces `CK-01-foundation`) |
-| `response_language` | string\|null | `null` | Any language name | Language for user-facing prompts (e.g., `"Portuguese"`, `"Japanese"`) |
+| `response_language` | string\|null | `null` | BCP 47 canonical locale (recommended) | Language for user-facing prompts. Recommended values are canonical locale tags such as `"en"` and `"zh-CN"`. Legacy aliases and natural-language names remain input-compatible only at the boundary, then normalize to canonical locale values internally. |
 | `context_window` | number | `200000` | `200000`, `1000000` | Context window size; set `1000000` for 1M-context models |
 | `resolve_model_ids` | boolean\|string | `false` | `false`, `true`, `"omit"` | Map model aliases to full Claude IDs; `"omit"` returns empty string |
 | `context` | string\|null | `null` | `"dev"`, `"research"`, `"review"` | Execution context profile that adjusts agent behavior: `"dev"` for development tasks, `"research"` for investigation/exploration, `"review"` for code review workflows |
@@ -417,7 +426,7 @@ Several config fields affect each other or trigger special behavior:
       "execute": ""
     }
   },
-  "response_language": "English"
+  "response_language": "en"
 }
 ```
 

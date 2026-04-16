@@ -109,11 +109,18 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
 | `granularity` | enum | `coarse`, `standard`, `fine` | `standard` | Controls phase count: `coarse` (3-5), `standard` (5-8), `fine` (8-12) |
 | `model_profile` | enum | `quality`, `balanced`, `budget`, `inherit` | `balanced` | Model tier for each agent (see [Model Profiles](#model-profiles)) |
 | `project_code` | string | any short string | (none) | Prefix for phase directory names (e.g., `"ABC"` produces `ABC-01-setup/`). Added in v1.31 |
-| `response_language` | string | language code | (none) | Language for agent responses (e.g., `"pt"`, `"ko"`, `"ja"`). Propagates to all spawned agents for cross-phase language consistency. Added in v1.32 |
+| `response_language` | string | BCP 47 canonical locale | (none) | Language for agent responses (recommended: `"en"`, `"zh-CN"`, `"ja-JP"`, `"ko-KR"`, `"pt-BR"`). Legacy aliases and natural-language names are accepted only at the input boundary, then normalized to a canonical locale. Added in v1.32 |
 | `context_profile` | string | `dev`, `research`, `review` | (none) | Execution context preset that applies a pre-configured bundle of mode, model, and workflow settings for the current type of work. Added in v1.34 |
 | `claude_md_path` | string | any file path | (none) | Custom output path for the generated CLAUDE.md file. Useful for monorepos or projects that need CLAUDE.md in a non-root location. When set, GSD writes its CLAUDE.md content to this path instead of the project root. Added in v1.36 |
 
 > **Note:** `granularity` was renamed from `depth` in v1.22.3. Existing configs are auto-migrated.
+
+### `response_language` Contract
+
+- Recommended values use BCP 47 canonical locale tags such as `en` and `zh-CN`.
+- Legacy aliases and natural-language inputs are still accepted at the input boundary, then normalized to the canonical locale used internally.
+- Fallback order for the first localized runtime path is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
+- Commands, paths, code snippets, config keys, and key technical terms remain in English even when `response_language` is set.
 
 ---
 
