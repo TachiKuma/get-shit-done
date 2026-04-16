@@ -2,6 +2,11 @@
 Execute a phase prompt (PLAN.md) and create the outcome summary (SUMMARY.md).
 </purpose>
 
+<localization_contract>
+Fixed-string summary labels belong to the `assets` locale namespace, while phase-specific narrative remains generated via `response_language`.
+Commands, paths, code, identifiers, and key technical terms remain in English.
+</localization_contract>
+
 <required_reading>
 Read STATE.md before any operation to load project context.
 Read config.json for planning behavior settings.

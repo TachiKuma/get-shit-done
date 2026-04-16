@@ -2,6 +2,12 @@
 
 Template for `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md` - phase completion documentation.
 
+## Localization Contract
+
+- Fixed-string section labels for this template belong to the `assets.summary.*` catalog.
+- Phase-specific narrative stays generated via `response_language`.
+- Commands, paths, code, identifiers, and key technical terms remain in English.
+
 ---
 
 ## File Template

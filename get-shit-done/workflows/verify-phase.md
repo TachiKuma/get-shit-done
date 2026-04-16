@@ -4,6 +4,11 @@ Verify phase goal achievement through goal-backward analysis. Check that the cod
 Executed by a verification subagent spawned from execute-phase.md.
 </purpose>
 
+<localization_contract>
+Fixed-string verification labels belong to the `assets` locale namespace, while evidence and narrative remain generated via `response_language`.
+Commands, paths, code, identifiers, and key technical terms remain in English.
+</localization_contract>
+
 <core_principle>
 **Task completion ≠ Goal achievement**
 

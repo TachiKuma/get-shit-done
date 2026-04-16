@@ -4,6 +4,11 @@ Validate built features through conversational testing with persistent state. Cr
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
 
+<localization_contract>
+Fixed-string UAT labels belong to the `assets` locale namespace, while user reports and diagnosis notes remain generated via `response_language`.
+Commands, paths, code, identifiers, and key technical terms remain in English.
+</localization_contract>
+
 <available_agent_types>
 Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
 - gsd-planner — Creates detailed plans from phase scope

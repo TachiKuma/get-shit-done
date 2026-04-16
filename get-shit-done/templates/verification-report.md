@@ -2,6 +2,12 @@
 
 Template for `.planning/phases/XX-name/{phase_num}-VERIFICATION.md` — phase goal verification results.
 
+## Localization Contract
+
+- Fixed-string section labels for this template belong to the `assets.verification.*` catalog.
+- Evidence details and gap explanations stay generated via `response_language`.
+- Commands, paths, code, identifiers, and key technical terms remain in English.
+
 ---
 
 ## File Template

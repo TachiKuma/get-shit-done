@@ -11,6 +11,12 @@ created: {date}
 
 > Per-phase validation contract for feedback sampling during execution.
 
+## Localization Contract
+
+- Fixed-string section labels for this template belong to the `assets.validation.*` catalog.
+- Phase-specific testing detail stays generated via `response_language`.
+- Commands, paths, code, identifiers, and key technical terms remain in English.
+
 ---
 
 ## Test Infrastructure

@@ -2,6 +2,12 @@
 
 Template for `.planning/phases/XX-name/{phase_num}-UAT.md` — persistent UAT session tracking.
 
+## Localization Contract
+
+- Fixed-string section labels for this template belong to the `assets.uat.*` catalog.
+- User-reported issue text and diagnosis notes stay generated via `response_language`.
+- Commands, paths, code, identifiers, and key technical terms remain in English.
+
 ---
 
 ## File Template

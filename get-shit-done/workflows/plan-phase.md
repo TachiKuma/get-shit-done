@@ -2,6 +2,11 @@
 Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
 </purpose>
 
+<localization_contract>
+Fixed-string labels for generated planning artifacts such as `VALIDATION` belong to the `assets` locale namespace, while plan-specific narrative remains generated via `response_language`.
+Commands, paths, code, identifiers, and key technical terms remain in English.
+</localization_contract>
+
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
 
