@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { loadConfig, resolveModelInternal, findPhaseInternal, getRoadmapPhaseInternal, pathExistsInternal, generateSlugInternal, getMilestoneInfo, getMilestonePhaseFilter, stripShippedMilestones, extractCurrentMilestone, normalizePhaseName, planningPaths, planningDir, planningRoot, toPosixPath, output, error, checkAgentsInstalled, phaseTokenMatches } = require('./core.cjs');
+const { normalizeLocale } = require('./locale.cjs');
 
 function getLatestCompletedMilestone(cwd) {
   const milestonesPath = path.join(planningRoot(cwd), 'MILESTONES.md');
@@ -41,8 +42,9 @@ function withProjectRoot(cwd, result) {
   // Workflows propagate this to subagent prompts so user-facing questions
   // stay in the configured language across phase boundaries.
   const config = loadConfig(cwd);
-  if (config.response_language) {
-    result.response_language = config.response_language;
+  const responseLanguage = normalizeLocale(config.response_language);
+  if (responseLanguage) {
+    result.response_language = responseLanguage;
   }
   return result;
 }

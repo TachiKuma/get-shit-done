@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync, execFileSync, spawnSync } = require('child_process');
 const { MODEL_PROFILES } = require('./model-profiles.cjs');
+const { normalizeLocale } = require('./locale.cjs');
 
 const WORKSTREAM_SESSION_ENV_KEYS = [
   'GSD_SESSION_KEY',
@@ -386,7 +387,7 @@ function loadConfig(cwd) {
       model_overrides: parsed.model_overrides || null,
       agent_skills: parsed.agent_skills || {},
       manager: parsed.manager || {},
-      response_language: get('response_language') || null,
+      response_language: normalizeLocale(get('response_language')) || null,
       claude_md_path: get('claude_md_path') || null,
     };
   } catch {
@@ -415,7 +416,7 @@ function loadConfig(cwd) {
         subagent_timeout: globalDefaults.subagent_timeout ?? defaults.subagent_timeout,
         model_overrides: globalDefaults.model_overrides || null,
         agent_skills: globalDefaults.agent_skills || {},
-        response_language: globalDefaults.response_language || null,
+        response_language: normalizeLocale(globalDefaults.response_language) || null,
       };
     } catch {
       return defaults;

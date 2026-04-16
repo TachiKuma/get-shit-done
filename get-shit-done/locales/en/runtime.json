@@ -1,0 +1,15 @@
+{
+  "runtime.phase.complete": "Phase complete",
+  "runtime.phase.blocked": "Phase blocked",
+  "runtime.phase.needs_review": "Execution needs review",
+  "runtime.progress.response_language": "Response language",
+  "runtime.progress.none": "none",
+  "runtime.status.in_progress": "In progress",
+  "runtime.status.pending_human_check": "pending human check",
+  "runtime.route.next_up": "Next Up",
+  "runtime.route.review_report": "Review the report",
+  "runtime.route.resume_testing": "Resume testing",
+  "runtime.config.canonical_locale_hint": "Use a canonical locale such as en or zh-CN.",
+  "runtime.config.alias_compatibility_hint": "Legacy aliases are accepted only at the input boundary.",
+  "runtime.config.english_retention_hint": "Commands, paths, code snippets, and key technical terms remain in English."
+}
