@@ -31,33 +31,18 @@ describe('command summary localization contract', () => {
     assert.ok(!content.includes('[命令参考](../COMMANDS.md) | 回退英文'), 'zh-CN README should not claim English-only fallback');
   });
 
-  test('non-first-batch locales share explicit fallback disclosure', () => {
-    for (const relativePath of ['docs/ja-JP/COMMANDS.md', 'docs/ko-KR/COMMANDS.md', 'docs/pt-BR/COMMANDS.md']) {
-      const content = read(relativePath);
-      assert.ok(content.includes('../COMMANDS.md'), `${relativePath} should link to English canonical docs`);
-      assert.ok(content.includes('English canonical'), `${relativePath} should disclose English canonical fallback`);
-      assert.match(content, /summary|要約|resumo/i, `${relativePath} should disclose summary-only coverage`);
-      assert.match(content, /mirror|fallback/i, `${relativePath} should explain the limited scope`);
-    }
-  });
-
   test('governance manifest classifies zh-CN as blocker and non-first-batch summaries as warning', () => {
     const manifest = loadGovernanceManifest();
     const blockerGroup = getSurfaceGroup(manifest, 'command-summary-first-batch');
-    const warningGroup = getSurfaceGroup(manifest, 'command-summary-warning-locales');
 
     assert.ok(blockerGroup, 'command-summary-first-batch group should exist');
     assert.equal(blockerGroup.disposition, 'blocker');
     assert.ok(blockerGroup.surfaces.some(surface => surface.path === 'docs/zh-CN/COMMANDS.md'));
-
-    assert.ok(warningGroup, 'command-summary-warning-locales group should exist');
-    assert.equal(warningGroup.disposition, 'warning');
-
-    for (const expectedPath of ['docs/ja-JP/COMMANDS.md', 'docs/ko-KR/COMMANDS.md', 'docs/pt-BR/COMMANDS.md']) {
-      assert.ok(
-        warningGroup.surfaces.some(surface => surface.path === expectedPath),
-        `${expectedPath} should stay warning-only`
-      );
-    }
+    assert.ok(
+      blockerGroup.surfaces.every(
+        surface => surface.verification_entry === 'tests/command-summary-localization.test.cjs'
+      ),
+      'blocker summary surfaces should use the blocker-only verifier entry'
+    );
   });
 });

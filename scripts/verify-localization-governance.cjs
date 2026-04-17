@@ -9,6 +9,7 @@ const {
   loadGovernanceManifest,
   readRepoFile,
   repoPathExists,
+  validateVerificationEntries,
 } = require('./lib/localization-governance.cjs');
 
 const results = {
@@ -89,9 +90,40 @@ function runManifestVerifiers() {
   }
 }
 
-function verifyManifestPresence() {
+function main() {
   const manifest = loadGovernanceManifest();
+  validateVerificationEntries(manifest);
 
+  verifyManifestPresence(manifest);
+  verifyGovernanceDocsAlignment();
+  verifyFeatureDocsAlignment();
+  runManifestVerifiers(manifest);
+  verifyBlockerSummarySurface();
+  verifyWarningSummarySurfaces(manifest);
+  verifyBlockerAssetParity();
+  addDeferredNotes(manifest);
+
+  const blockerFailures = results.blocker.filter(entry => !entry.ok).length;
+  const warningFailures = results.warning.filter(entry => !entry.ok).length;
+
+  console.log('Localization Governance Verification');
+  console.log(`Root: ${ROOT}`);
+  console.log('');
+
+  printSection('Blocker', results.blocker);
+  printSection('Warning', results.warning);
+  printSection('Deferred', results.deferred);
+
+  console.log(
+    `Summary: blocker_failures=${blockerFailures}, warning_failures=${warningFailures}, deferred=${results.deferred.length}`
+  );
+
+  if (blockerFailures > 0) {
+    process.exit(1);
+  }
+}
+
+function verifyManifestPresence(manifest) {
   for (const surface of flattenSurfaces(manifest)) {
     if (surface.path) {
       record(
@@ -172,8 +204,7 @@ function verifyBlockerSummarySurface() {
   );
 }
 
-function verifyWarningSummarySurfaces() {
-  const manifest = loadGovernanceManifest();
+function verifyWarningSummarySurfaces(manifest) {
   const warningSurfaces = flattenSurfaces(manifest).filter(
     surface => surface.group === 'command-summary-warning-locales' && surface.path
   );
@@ -217,8 +248,7 @@ function verifyBlockerAssetParity() {
   );
 }
 
-function addDeferredNotes() {
-  const manifest = loadGovernanceManifest();
+function addDeferredNotes(manifest) {
   for (const surface of flattenSurfaces(manifest).filter(surface => surface.disposition === 'deferred')) {
     record(
       'deferred',
@@ -244,30 +274,9 @@ function printSection(title, entries) {
   console.log('');
 }
 
-verifyManifestPresence();
-verifyGovernanceDocsAlignment();
-verifyFeatureDocsAlignment();
-runManifestVerifiers();
-verifyBlockerSummarySurface();
-verifyWarningSummarySurfaces();
-verifyBlockerAssetParity();
-addDeferredNotes();
-
-const blockerFailures = results.blocker.filter(entry => !entry.ok).length;
-const warningFailures = results.warning.filter(entry => !entry.ok).length;
-
-console.log('Localization Governance Verification');
-console.log(`Root: ${ROOT}`);
-console.log('');
-
-printSection('Blocker', results.blocker);
-printSection('Warning', results.warning);
-printSection('Deferred', results.deferred);
-
-console.log(
-  `Summary: blocker_failures=${blockerFailures}, warning_failures=${warningFailures}, deferred=${results.deferred.length}`
-);
-
-if (blockerFailures > 0) {
+try {
+  main();
+} catch (error) {
+  console.error(`Localization governance configuration error: ${error.message}`);
   process.exit(1);
 }

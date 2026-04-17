@@ -51,7 +51,7 @@ function isTestEntry(entry) {
   return /\.test\.cjs$/i.test(entry);
 }
 
-function collectVerificationEntries(manifest) {
+function buildVerificationEntryIndex(manifest) {
   const collected = new Map();
 
   for (const surface of flattenSurfaces(manifest)) {
@@ -64,11 +64,14 @@ function collectVerificationEntries(manifest) {
       collected.set(entry, {
         entry,
         runner: isTestEntry(entry) ? 'test' : 'node',
+        dispositions: new Set(),
         surfaces: [],
       });
     }
 
-    collected.get(entry).surfaces.push({
+    const record = collected.get(entry);
+    record.dispositions.add(surface.disposition);
+    record.surfaces.push({
       id: surface.id,
       path: surface.path || null,
       path_pattern: surface.path_pattern || null,
@@ -79,7 +82,35 @@ function collectVerificationEntries(manifest) {
     });
   }
 
-  return Array.from(collected.values());
+  return collected;
+}
+
+function validateVerificationEntries(manifest) {
+  const conflicts = [];
+
+  for (const record of buildVerificationEntryIndex(manifest).values()) {
+    if (record.dispositions.size > 1) {
+      const dispositions = Array.from(record.dispositions).sort();
+      conflicts.push(
+        `verification_entry "${record.entry}" mixes dispositions: ${dispositions.join(', ')}`
+      );
+    }
+  }
+
+  if (conflicts.length > 0) {
+    throw new Error(conflicts.join('; '));
+  }
+}
+
+function collectVerificationEntries(manifest) {
+  const collected = buildVerificationEntryIndex(manifest);
+  validateVerificationEntries(manifest);
+
+  return Array.from(collected.values()).map(record => ({
+    entry: record.entry,
+    runner: record.runner,
+    surfaces: record.surfaces,
+  }));
 }
 
 function readRepoFile(relativePath, root = ROOT) {
@@ -95,6 +126,7 @@ module.exports = {
   ROOT,
   ROOT_ENV_KEY,
   MANIFEST_PATH,
+  buildVerificationEntryIndex,
   collectVerificationEntries,
   flattenSurfaces,
   getSurfaceGroup,
@@ -104,4 +136,5 @@ module.exports = {
   resolveManifestPath,
   resolveRepoRoot,
   repoPathExists,
+  validateVerificationEntries,
 };

@@ -145,21 +145,21 @@
           "path": "docs/ja-JP/COMMANDS.md",
           "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
           "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
-          "verification_entry": "tests/command-summary-localization.test.cjs"
+          "verification_entry": "tests/command-summary-warning-locales.test.cjs"
         },
         {
           "id": "command-summary-ko-KR",
           "path": "docs/ko-KR/COMMANDS.md",
           "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
           "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
-          "verification_entry": "tests/command-summary-localization.test.cjs"
+          "verification_entry": "tests/command-summary-warning-locales.test.cjs"
         },
         {
           "id": "command-summary-pt-BR",
           "path": "docs/pt-BR/COMMANDS.md",
           "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
           "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
-          "verification_entry": "tests/command-summary-localization.test.cjs"
+          "verification_entry": "tests/command-summary-warning-locales.test.cjs"
         }
       ]
     },
