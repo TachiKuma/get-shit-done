@@ -4,6 +4,10 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const {
+  getSurfaceGroup,
+  loadGovernanceManifest,
+} = require('../scripts/lib/localization-governance.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const CONFIG_DOC = path.join(ROOT, 'docs', 'CONFIGURATION.md');
@@ -36,6 +40,21 @@ describe('response_language documentation contract', () => {
       const content = read(filePath);
       assert.ok(content.includes('English'), `${path.basename(filePath)} should mention English retention`);
       assert.ok(/commands|paths|code snippets/i.test(content), `${path.basename(filePath)} should mention technical identifiers`);
+    }
+  });
+
+  test('governance manifest keeps both docs in the blocker contract', () => {
+    const manifest = loadGovernanceManifest();
+    const docGroup = getSurfaceGroup(manifest, 'config-and-public-contract');
+
+    assert.ok(docGroup, 'config-and-public-contract group should exist');
+    assert.equal(docGroup.disposition, 'blocker');
+
+    for (const expectedPath of ['docs/CONFIGURATION.md', 'get-shit-done/references/planning-config.md']) {
+      assert.ok(
+        docGroup.surfaces.some(surface => surface.path === expectedPath),
+        `${expectedPath} should be tracked by the governance manifest`
+      );
     }
   });
 });

@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadLocaleCatalog } = require('../get-shit-done/bin/lib/locale.cjs');
+const {
+  getSurfaceGroup,
+  loadGovernanceManifest,
+} = require('../scripts/lib/localization-governance.cjs');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -50,6 +54,21 @@ describe('template asset localization contract', () => {
       assert.match(content, /fixed-string/i, `${relativePath} should mention fixed-string contract`);
       assert.match(content, /response_language/i, `${relativePath} should mention generated narrative contract`);
       assert.match(content, /English/i, `${relativePath} should mention English retention`);
+    }
+  });
+
+  test('governance manifest keeps first-batch assets catalogs in the blocker set', () => {
+    const manifest = loadGovernanceManifest();
+    const assetsGroup = getSurfaceGroup(manifest, 'asset-catalogs');
+
+    assert.ok(assetsGroup, 'asset-catalogs group should exist');
+    assert.equal(assetsGroup.disposition, 'blocker');
+
+    for (const expectedPath of ['get-shit-done/locales/en/assets.json', 'get-shit-done/locales/zh-CN/assets.json']) {
+      assert.ok(
+        assetsGroup.surfaces.some(surface => surface.path === expectedPath),
+        `${expectedPath} should be tracked as a blocker asset surface`
+      );
     }
   });
 });

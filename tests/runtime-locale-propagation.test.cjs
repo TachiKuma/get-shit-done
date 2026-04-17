@@ -4,6 +4,10 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const {
+  getSurfaceGroup,
+  loadGovernanceManifest,
+} = require('../scripts/lib/localization-governance.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const WORKFLOWS = [
@@ -46,5 +50,19 @@ describe('runtime locale propagation coverage', () => {
     const progressWorkflow = readWorkflow('progress.md');
     assert.ok(progressWorkflow.includes('**Response language:**'));
   });
-});
 
+  test('priority workflows are tracked as blocker surfaces in governance', () => {
+    const manifest = loadGovernanceManifest();
+    const workflowGroup = getSurfaceGroup(manifest, 'priority-workflows');
+
+    assert.ok(workflowGroup, 'priority-workflows group should exist');
+    assert.equal(workflowGroup.disposition, 'blocker');
+
+    for (const workflowName of WORKFLOWS) {
+      assert.ok(
+        workflowGroup.surfaces.some(surface => surface.path.endsWith(`/${workflowName}`)),
+        `${workflowName} should be a blocker workflow surface`
+      );
+    }
+  });
+});
