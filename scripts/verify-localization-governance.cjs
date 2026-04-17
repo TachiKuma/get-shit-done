@@ -1,9 +1,9 @@
 'use strict';
 
-const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadLocaleCatalog } = require('../get-shit-done/bin/lib/locale.cjs');
 const {
+  collectVerificationEntries,
   ROOT,
   flattenSurfaces,
   loadGovernanceManifest,
@@ -23,20 +23,70 @@ function record(disposition, label, ok, detail) {
   results[disposition].push({ label, ok, detail });
 }
 
-function runNodeStep(label, relativeArgs, disposition, detail) {
+function summarizeOutput(output, fallbackDetail) {
+  if (!output) {
+    return fallbackDetail;
+  }
+
+  const lines = output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return fallbackDetail;
+  }
+
+  return lines.slice(-3).join(' | ');
+}
+
+function runNodeStep(relativeArgs, fallbackDetail) {
   const runner = process.execPath;
   const execution = spawnSync(runner, relativeArgs, {
     cwd: ROOT,
     encoding: 'utf8',
+    env: { ...process.env },
   });
 
   const output = [execution.stdout, execution.stderr].filter(Boolean).join('\n').trim();
-  record(
-    disposition,
-    label,
-    execution.status === 0,
-    output || detail
-  );
+  return {
+    ok: execution.status === 0,
+    detail: summarizeOutput(output, fallbackDetail),
+  };
+}
+
+function describeSurface(surface, verifierResult) {
+  const target = surface.path || surface.path_pattern || surface.id;
+  const expected = surface.expected_check || 'verifier executed';
+  return `${target} via ${verifierResult.entry} (${surface.group}) | ${verifierResult.detail || expected}`;
+}
+
+function runManifestVerifiers() {
+  const manifest = loadGovernanceManifest();
+  const verificationEntries = collectVerificationEntries(manifest);
+
+  for (const verificationEntry of verificationEntries) {
+    const args =
+      verificationEntry.runner === 'test'
+        ? ['--test', verificationEntry.entry]
+        : [verificationEntry.entry];
+    const execution = runNodeStep(
+      args,
+      `${verificationEntry.entry} should pass for all linked governance surfaces`
+    );
+
+    for (const surface of verificationEntry.surfaces) {
+      record(
+        surface.disposition,
+        `surface:${surface.id}`,
+        execution.ok,
+        describeSurface(surface, {
+          entry: verificationEntry.entry,
+          detail: execution.detail,
+        })
+      );
+    }
+  }
 }
 
 function verifyManifestPresence() {
@@ -123,18 +173,25 @@ function verifyBlockerSummarySurface() {
 }
 
 function verifyWarningSummarySurfaces() {
-  for (const relativePath of ['docs/ja-JP/COMMANDS.md', 'docs/ko-KR/COMMANDS.md', 'docs/pt-BR/COMMANDS.md']) {
+  const manifest = loadGovernanceManifest();
+  const warningSurfaces = flattenSurfaces(manifest).filter(
+    surface => surface.group === 'command-summary-warning-locales' && surface.path
+  );
+
+  for (const surface of warningSurfaces) {
+    const relativePath = surface.path;
     const content = readRepoFile(relativePath);
     const ok =
       content.includes('../COMMANDS.md') &&
       content.includes('English canonical') &&
-      /summary|要約|resumo/i.test(content);
+      /summary|要約|resumo/i.test(content) &&
+      /mirror|fallback/i.test(content);
 
     record(
       'warning',
-      `summary:${relativePath}`,
+      `surface:${surface.id}`,
       ok,
-      'non-first-batch locale should remain summary-only with explicit English canonical fallback'
+      `${relativePath} should remain summary-only with explicit English canonical fallback or mirror disclosure`
     );
   }
 }
@@ -190,24 +247,7 @@ function printSection(title, entries) {
 verifyManifestPresence();
 verifyGovernanceDocsAlignment();
 verifyFeatureDocsAlignment();
-runNodeStep(
-  'runtime-smoke',
-  [path.join('scripts', 'verify-locale-runtime.cjs')],
-  'blocker',
-  'runtime smoke check should pass for blocker workflow and runtime catalog surfaces'
-);
-runNodeStep(
-  'asset-smoke',
-  [path.join('scripts', 'verify-asset-localization.cjs')],
-  'warning',
-  'asset smoke check is reused for governance reporting; blocker gating stays driven by policy-specific first-batch checks'
-);
-runNodeStep(
-  'governance-coverage-test',
-  ['--test', path.join('tests', 'localization-governance-coverage.test.cjs')],
-  'blocker',
-  'governance manifest coverage test should pass'
-);
+runManifestVerifiers();
 verifyBlockerSummarySurface();
 verifyWarningSummarySurfaces();
 verifyBlockerAssetParity();
