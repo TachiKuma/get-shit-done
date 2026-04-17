@@ -1,0 +1,202 @@
+{
+  "phase": "05-localization-governance",
+  "purpose": "Machine-readable locale governance fact source for blocker, warning, and deferred surfaces.",
+  "canonical_language": "en",
+  "first_batch_locales": [
+    "en",
+    "zh-CN"
+  ],
+  "warning_locales": [
+    "ja-JP",
+    "ko-KR",
+    "pt-BR"
+  ],
+  "dispositions": {
+    "blocker": "Must fail governance verification when missing, drifting, or contradicting the first-batch locale contract.",
+    "warning": "Must stay visible in governance output, but does not block plan execution or local verification.",
+    "deferred": "Tracked as future governance scope and excluded from the first-batch gate."
+  },
+  "surface_groups": [
+    {
+      "group": "priority-workflows",
+      "disposition": "blocker",
+      "owner_hint": "workflow-maintainers",
+      "reason": "Phase 03 locked `discuss-phase`, `plan-phase`, `execute-phase`, and `progress` as the priority runtime propagation chain.",
+      "surfaces": [
+        {
+          "id": "workflow-discuss-phase",
+          "path": "get-shit-done/workflows/discuss-phase.md",
+          "canonical_source": "English workflow source",
+          "expected_check": "runtime propagation contract remains visible via response_language, canonical locale, and English retention assertions",
+          "verification_entry": "tests/runtime-locale-propagation.test.cjs"
+        },
+        {
+          "id": "workflow-plan-phase",
+          "path": "get-shit-done/workflows/plan-phase.md",
+          "canonical_source": "English workflow source",
+          "expected_check": "runtime propagation contract remains visible via response_language, canonical locale, and English retention assertions",
+          "verification_entry": "tests/runtime-locale-propagation.test.cjs"
+        },
+        {
+          "id": "workflow-execute-phase",
+          "path": "get-shit-done/workflows/execute-phase.md",
+          "canonical_source": "English workflow source",
+          "expected_check": "runtime propagation contract remains visible via response_language, canonical locale, and English retention assertions",
+          "verification_entry": "tests/runtime-locale-propagation.test.cjs"
+        },
+        {
+          "id": "workflow-progress",
+          "path": "get-shit-done/workflows/progress.md",
+          "canonical_source": "English workflow source",
+          "expected_check": "runtime propagation contract remains visible via response_language, canonical locale, and English retention assertions",
+          "verification_entry": "tests/runtime-locale-propagation.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "config-and-public-contract",
+      "disposition": "blocker",
+      "owner_hint": "docs-maintainers",
+      "reason": "Public and maintainer docs define the canonical locale, alias compatibility, fallback, and English retention contract.",
+      "surfaces": [
+        {
+          "id": "docs-configuration",
+          "path": "docs/CONFIGURATION.md",
+          "canonical_source": "English documentation",
+          "expected_check": "BCP 47, canonical locale examples, fallback, and English retention stay aligned with runtime behavior",
+          "verification_entry": "tests/response-language-docs.test.cjs"
+        },
+        {
+          "id": "planning-config-reference",
+          "path": "get-shit-done/references/planning-config.md",
+          "canonical_source": "English maintainer reference",
+          "expected_check": "BCP 47, canonical locale examples, fallback, and English retention stay aligned with runtime behavior",
+          "verification_entry": "tests/response-language-docs.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "runtime-catalogs",
+      "disposition": "blocker",
+      "owner_hint": "locale-maintainers",
+      "reason": "First-batch runtime fixed strings must keep `en + zh-CN` parity and known fallback behavior.",
+      "surfaces": [
+        {
+          "id": "runtime-catalog-en",
+          "path": "get-shit-done/locales/en/runtime.json",
+          "canonical_source": "English runtime catalog",
+          "expected_check": "Catalog parses and provides the canonical key set for runtime.* strings",
+          "verification_entry": "scripts/verify-locale-runtime.cjs"
+        },
+        {
+          "id": "runtime-catalog-zh-CN",
+          "path": "get-shit-done/locales/zh-CN/runtime.json",
+          "canonical_source": "First-batch locale runtime catalog",
+          "expected_check": "Catalog key set matches English and localized values resolve before fallback",
+          "verification_entry": "scripts/verify-locale-runtime.cjs"
+        }
+      ]
+    },
+    {
+      "group": "asset-catalogs",
+      "disposition": "blocker",
+      "owner_hint": "asset-localization-maintainers",
+      "reason": "Phase 04 established `assets` catalogs as the first-batch fixed-string source for templates and reports.",
+      "surfaces": [
+        {
+          "id": "assets-catalog-en",
+          "path": "get-shit-done/locales/en/assets.json",
+          "canonical_source": "English assets catalog",
+          "expected_check": "Catalog parses and provides the canonical key set for first-batch template assets",
+          "verification_entry": "tests/template-asset-localization.test.cjs"
+        },
+        {
+          "id": "assets-catalog-zh-CN",
+          "path": "get-shit-done/locales/zh-CN/assets.json",
+          "canonical_source": "First-batch locale assets catalog",
+          "expected_check": "Catalog key set matches English and localized values resolve before fallback",
+          "verification_entry": "tests/template-asset-localization.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "command-summary-first-batch",
+      "disposition": "blocker",
+      "owner_hint": "docs-maintainers",
+      "reason": "The first-batch locale summary mirror is a committed user-facing surface, but only at the summary layer.",
+      "surfaces": [
+        {
+          "id": "command-summary-zh-CN",
+          "path": "docs/zh-CN/COMMANDS.md",
+          "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
+          "expected_check": "High-quality zh-CN summary covers the first-batch commands and keeps English canonical links visible",
+          "verification_entry": "tests/command-summary-localization.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "command-summary-warning-locales",
+      "disposition": "warning",
+      "owner_hint": "docs-maintainers",
+      "reason": "Non-first-batch locales only promise a summary-only skeleton with explicit fallback disclosure.",
+      "surfaces": [
+        {
+          "id": "command-summary-ja-JP",
+          "path": "docs/ja-JP/COMMANDS.md",
+          "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
+          "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
+          "verification_entry": "tests/command-summary-localization.test.cjs"
+        },
+        {
+          "id": "command-summary-ko-KR",
+          "path": "docs/ko-KR/COMMANDS.md",
+          "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
+          "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
+          "verification_entry": "tests/command-summary-localization.test.cjs"
+        },
+        {
+          "id": "command-summary-pt-BR",
+          "path": "docs/pt-BR/COMMANDS.md",
+          "canonical_source": "docs/COMMANDS.md and commands/gsd/*.md",
+          "expected_check": "Keeps summary-only skeleton and explicit English canonical fallback disclosure",
+          "verification_entry": "tests/command-summary-localization.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "deferred-surfaces",
+      "disposition": "deferred",
+      "owner_hint": "phase-05-follow-up",
+      "reason": "These surfaces remain visible in governance discussions, but this plan must not upgrade them to hard gates.",
+      "surfaces": [
+        {
+          "id": "workflow-non-priority",
+          "path_pattern": "get-shit-done/workflows/*.md",
+          "canonical_source": "English workflow source",
+          "expected_check": "Track outside the priority workflow set without upgrading to first-batch blocker coverage",
+          "verification_entry": "report-only"
+        },
+        {
+          "id": "locale-readme-mirrors",
+          "path_pattern": "docs/{locale}/README.md",
+          "canonical_source": "docs/README.md",
+          "expected_check": "Track documentation navigation drift separately from the first-batch hard gate",
+          "verification_entry": "report-only"
+        },
+        {
+          "id": "non-first-batch-assets",
+          "path_pattern": "get-shit-done/locales/{ja-JP,ko-KR,pt-BR}/assets.json",
+          "canonical_source": "get-shit-done/locales/en/assets.json",
+          "expected_check": "Follow future locale expansion instead of the first-batch hard gate",
+          "verification_entry": "report-only"
+        }
+      ]
+    }
+  ],
+  "policy_notes": [
+    "This manifest is the single fact source for blocker, warning, and deferred governance surfaces.",
+    "Only the first-batch `en + zh-CN` commitment and priority workflow/config chain are blockers in Phase 05 Plan 01.",
+    "Warning-only surfaces must remain visible in reports, but they do not fail the governance verifier.",
+    "Deferred surfaces stay documented so later plans can expand governance without re-deriving scope from prose."
+  ]
+}
