@@ -119,8 +119,12 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
 
 - Recommended values use BCP 47 canonical locale tags such as `en` and `zh-CN`.
 - Legacy aliases and natural-language inputs are still accepted at the input boundary, then normalized to the canonical locale used internally.
+- `English canonical` sources remain the source of truth for commands, workflows, and maintainer references even when localized mirrors exist.
 - Fallback order for the first localized runtime path is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
 - Commands, paths, code snippets, config keys, and key technical terms remain in English even when `response_language` is set.
+
+See `get-shit-done/references/localization-glossary.md` for the canonical locale, fallback, mirror, and Do Not Translate wording used by localization governance.
+See `get-shit-done/references/localization-sync-playbook.md` for the maintainer workflow when an English canonical change touches blocker or warning surfaces.
 
 ---
 

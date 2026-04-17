@@ -60,6 +60,29 @@ function verifyManifestPresence() {
   }
 }
 
+function verifyGovernanceDocsAlignment() {
+  const glossary = readRepoFile('get-shit-done/references/localization-glossary.md');
+  const playbook = readRepoFile('get-shit-done/references/localization-sync-playbook.md');
+  const configuration = readRepoFile('docs/CONFIGURATION.md');
+  const planningConfig = readRepoFile('get-shit-done/references/planning-config.md');
+
+  record(
+    'blocker',
+    'docs:localization-governance-contract',
+    ['canonical locale', 'English canonical', 'fallback', 'Do Not Translate'].every(token =>
+      glossary.includes(token)
+    ) &&
+      ['trigger', 'owner', 'blocker', 'warning', 'English canonical'].every(token =>
+        playbook.includes(token)
+      ) &&
+      configuration.includes('localization-glossary.md') &&
+      configuration.includes('localization-sync-playbook.md') &&
+      planningConfig.includes('localization-glossary.md') &&
+      planningConfig.includes('localization-sync-playbook.md'),
+    'glossary, playbook, public config docs, and maintainer config docs must stay linked by the same governance wording'
+  );
+}
+
 function verifyBlockerSummarySurface() {
   const zhCommands = readRepoFile('docs/zh-CN/COMMANDS.md');
   const ok = [
@@ -145,6 +168,7 @@ function printSection(title, entries) {
 }
 
 verifyManifestPresence();
+verifyGovernanceDocsAlignment();
 runNodeStep(
   'runtime-smoke',
   [path.join('scripts', 'verify-locale-runtime.cjs')],

@@ -46,8 +46,11 @@ Configuration options for `.planning/` directory behavior.
 
 - Recommended values use BCP 47 canonical locale tags such as `en`, `zh-CN`, `ja-JP`, `ko-KR`, and `pt-BR`.
 - Alias compatibility exists only at the input boundary; internal runtime objects, workflows, and locale catalogs consume canonical locale values only.
+- `English canonical` sources remain authoritative even when mirror or summary-only locale docs exist.
 - First-batch fallback order is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
 - Commands, paths, code snippets, file names, and key technical terms remain in English.
+- Reuse the canonical wording from `get-shit-done/references/localization-glossary.md` when documenting canonical locale, fallback, mirror, drift, and Do Not Translate boundaries.
+- Follow `get-shit-done/references/localization-sync-playbook.md` when an English canonical update touches a blocker or warning surface from `get-shit-done/references/localization-governance-surfaces.json`.
 
 </response_language_contract>
 

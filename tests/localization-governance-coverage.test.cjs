@@ -2,7 +2,10 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 const {
+  ROOT,
   flattenSurfaces,
   getSurfaceGroup,
   loadGovernanceManifest,
@@ -68,5 +71,34 @@ describe('localization governance manifest coverage', () => {
     assert.ok(
       deferredGroup.surfaces.some(surface => surface.path_pattern === 'docs/{locale}/README.md')
     );
+  });
+
+  test('glossary, playbook, and config docs reuse the same governance wording', () => {
+    const glossary = fs.readFileSync(
+      path.join(ROOT, 'get-shit-done', 'references', 'localization-glossary.md'),
+      'utf8'
+    );
+    const playbook = fs.readFileSync(
+      path.join(ROOT, 'get-shit-done', 'references', 'localization-sync-playbook.md'),
+      'utf8'
+    );
+    const configuration = fs.readFileSync(path.join(ROOT, 'docs', 'CONFIGURATION.md'), 'utf8');
+    const planningConfig = fs.readFileSync(
+      path.join(ROOT, 'get-shit-done', 'references', 'planning-config.md'),
+      'utf8'
+    );
+
+    for (const token of ['canonical locale', 'English canonical', 'fallback', 'response_language']) {
+      assert.match(glossary, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
+      assert.match(playbook, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
+      assert.match(configuration, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
+      assert.match(planningConfig, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
+    }
+
+    assert.match(playbook, /localization-governance-surfaces\.json/);
+    assert.match(configuration, /localization-glossary\.md/);
+    assert.match(configuration, /localization-sync-playbook\.md/);
+    assert.match(planningConfig, /localization-glossary\.md/);
+    assert.match(planningConfig, /localization-sync-playbook\.md/);
   });
 });
