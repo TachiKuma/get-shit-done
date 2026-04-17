@@ -120,6 +120,49 @@ function createManifestOnlyFixture(t, options = {}) {
   return { manifestPath };
 }
 
+function createMixedDispositionFixture(t) {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-l10n-governance-mixed-'));
+  t.after(() => fs.rmSync(tmpRoot, { recursive: true, force: true }));
+
+  const sharedEntry = path.join(tmpRoot, 'shared-check.cjs');
+  writeFile(sharedEntry, "'use strict';\nconsole.log('shared verifier should not run');\n");
+
+  const manifestPath = path.join(tmpRoot, 'fixture-manifest.json');
+  const manifest = {
+    surface_groups: [
+      {
+        group: 'fixture-blockers',
+        disposition: 'blocker',
+        owner_hint: 'tests',
+        surfaces: [
+          {
+            id: 'fixture-blocker-shared',
+            path: 'docs/CONFIGURATION.md',
+            expected_check: 'shared entry must be rejected before execution',
+            verification_entry: sharedEntry,
+          },
+        ],
+      },
+      {
+        group: 'fixture-warnings',
+        disposition: 'warning',
+        owner_hint: 'tests',
+        surfaces: [
+          {
+            id: 'fixture-warning-shared',
+            path: 'docs/ja-JP/COMMANDS.md',
+            expected_check: 'shared entry must be rejected before execution',
+            verification_entry: sharedEntry,
+          },
+        ],
+      },
+    ],
+  };
+  writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+  return { manifestPath, sharedEntry };
+}
+
 function createRootFixture(t, warningSummaryContent) {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-l10n-root-'));
   t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
@@ -315,6 +358,19 @@ describe('localization governance manifest coverage', () => {
       'docs/pt-BR/COMMANDS.md',
     ]);
   });
+
+  test('mixed-disposition shared verification entries are rejected before execution', t => {
+    const { manifestPath, sharedEntry } = createMixedDispositionFixture(t);
+    const result = runVerifier({ manifestPath });
+
+    assert.notEqual(result.status, 0, 'mixed-disposition shared entry should fail fast');
+    assert.match(result.stderr, /mixed-disposition/i);
+    assert.match(result.stderr, new RegExp(sharedEntry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(result.stderr, /blocker/);
+    assert.match(result.stderr, /warning/);
+    assert.doesNotMatch(result.stdout, /## Blocker/);
+    assert.doesNotMatch(result.stdout, /blocker_failures=1/);
+  });
 });
 
 describe('localization governance verifier behavior', () => {
@@ -345,6 +401,14 @@ describe('localization governance verifier behavior', () => {
     assert.match(result.stdout, /## Warning/);
     assert.match(result.stdout, /surface:fixture-warning/);
     assert.match(result.stdout, /FAIL/);
+  });
+
+  test('baseline verifier routes warning command summaries through the dedicated warning verifier entry', () => {
+    const result = runVerifier();
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /tests\/command-summary-warning-locales\.test\.cjs/);
+    assert.match(result.stdout, /surface:command-summary-ja-JP/);
   });
 
   test('warning summary contract fails when fallback or mirror disclosure disappears', t => {
@@ -383,5 +447,43 @@ describe('localization governance documentation alignment', () => {
     assert.match(planningConfig, /"quick", "standard", "deep"/);
     assert.match(configuration, /`quick`[\s\S]*`standard`[\s\S]*`deep`/);
     assert.match(codeReviewWorkflow, /quick\|standard\|deep/);
+  });
+
+  test('planning config complete field reference stays aligned with documentable config truth source', () => {
+    const {
+      buildNewProjectConfig,
+      getDocumentableConfigKeys,
+      getDocumentableConfigExemptions,
+    } = require('../get-shit-done/bin/lib/config.cjs');
+    const planningConfig = read(PLANNING_CONFIG_DOC_PATH);
+    const materialized = buildNewProjectConfig({});
+    const keys = getDocumentableConfigKeys(materialized);
+    const exemptions = new Set(getDocumentableConfigExemptions());
+
+    for (const key of keys) {
+      assert.ok(!exemptions.has(key), `documentable key ${key} must not be exempt`);
+      assert.match(
+        planningConfig,
+        new RegExp('`' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '`'),
+        `planning-config.md should document ${key}`
+      );
+    }
+
+    for (const requiredKey of [
+      'workflow.code_review_command',
+      'workflow.pattern_mapper',
+      'workflow.plan_bounce',
+      'workflow.plan_bounce_script',
+      'workflow.plan_bounce_passes',
+      'workflow.cross_ai_execution',
+      'workflow.cross_ai_command',
+      'workflow.cross_ai_timeout',
+      'workflow.tdd_mode',
+      'claude_md_path',
+      'graphify.enabled',
+      'graphify.build_timeout',
+    ]) {
+      assert.ok(keys.includes(requiredKey), `${requiredKey} should be part of the documentable config truth source`);
+    }
   });
 });
