@@ -51,6 +51,60 @@ const VALID_CONFIG_KEYS = new Set([
   'claude_md_path',
 ]);
 
+const DOCUMENTABLE_CONFIG_EXEMPTIONS = Object.freeze([
+  'workflow._auto_chain_active',
+]);
+
+const DOCUMENTABLE_CONFIG_DYNAMIC_EXEMPTIONS = Object.freeze([
+  'agent_skills.<agent-type>',
+  'review.models.<cli>',
+  'features.<feature_name>',
+]);
+
+const DOCUMENTABLE_CONFIG_EXTRA_KEYS = Object.freeze([
+  'agent_skills',
+  'context_window',
+  'resolve_model_ids',
+  'model_overrides',
+  'sub_repos',
+]);
+
+const DOCUMENTABLE_CONFIG_DEFAULT_OVERRIDES = Object.freeze({
+  mode: 'interactive',
+  granularity: 'standard',
+  parallelization: true,
+  context: null,
+  context_window: 200000,
+  resolve_model_ids: false,
+  response_language: null,
+  'git.base_branch': null,
+  'planning.commit_docs': true,
+  'planning.search_gitignored': false,
+  sub_repos: [],
+  model_overrides: null,
+  'workflow.cross_ai_execution': false,
+  'workflow.cross_ai_command': '',
+  'workflow.cross_ai_timeout': 300,
+  'workflow.subagent_timeout': 300000,
+  'workflow.inline_plan_threshold': 2,
+  'workflow.tdd_mode': false,
+  'workflow.code_review_command': null,
+  'workflow.pattern_mapper': true,
+  'workflow.plan_bounce': false,
+  'workflow.plan_bounce_script': null,
+  'workflow.plan_bounce_passes': 2,
+  'features.thinking_partner': false,
+  'features.global_learnings': false,
+  'learnings.max_inject': 10,
+  'intel.enabled': false,
+  'graphify.enabled': false,
+  'graphify.build_timeout': 300,
+  'manager.flags.discuss': '',
+  'manager.flags.plan': '',
+  'manager.flags.execute': '',
+  claude_md_path: './CLAUDE.md',
+});
+
 /**
  * Check whether a config key path is valid.
  * Supports exact matches from VALID_CONFIG_KEYS plus dynamic patterns
@@ -210,6 +264,54 @@ function buildNewProjectConfig(userChoices) {
       ...(choices.agent_skills || {}),
     },
   };
+}
+
+function flattenConfigObject(source, prefix = '') {
+  const flattened = {};
+
+  for (const [key, value] of Object.entries(source || {})) {
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+    const isPlainObject =
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date);
+
+    if (isPlainObject) {
+      if (Object.keys(value).length === 0) {
+        flattened[nextKey] = value;
+        continue;
+      }
+      Object.assign(flattened, flattenConfigObject(value, nextKey));
+      continue;
+    }
+
+    flattened[nextKey] = value;
+  }
+
+  return flattened;
+}
+
+function getDocumentableConfigDefaults(materializedConfig = buildNewProjectConfig({})) {
+  return {
+    ...flattenConfigObject(materializedConfig),
+    ...DOCUMENTABLE_CONFIG_DEFAULT_OVERRIDES,
+  };
+}
+
+function getDocumentableConfigKeys(materializedConfig = buildNewProjectConfig({})) {
+  const defaults = getDocumentableConfigDefaults(materializedConfig);
+  return [...new Set([...VALID_CONFIG_KEYS, ...DOCUMENTABLE_CONFIG_EXTRA_KEYS])]
+    .filter(key => !DOCUMENTABLE_CONFIG_EXEMPTIONS.includes(key))
+    .filter(key => key in defaults)
+    .sort();
+}
+
+function getDocumentableConfigExemptions() {
+  return [
+    ...DOCUMENTABLE_CONFIG_EXEMPTIONS,
+    ...DOCUMENTABLE_CONFIG_DYNAMIC_EXEMPTIONS,
+  ];
 }
 
 /**
@@ -497,9 +599,13 @@ function getCmdConfigSetModelProfileResultMessage(
 
 module.exports = {
   VALID_CONFIG_KEYS,
+  buildNewProjectConfig,
   cmdConfigEnsureSection,
   cmdConfigSet,
   cmdConfigGet,
   cmdConfigSetModelProfile,
   cmdConfigNewProject,
+  getDocumentableConfigDefaults,
+  getDocumentableConfigExemptions,
+  getDocumentableConfigKeys,
 };

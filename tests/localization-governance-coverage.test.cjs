@@ -24,6 +24,26 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractDocumentedConfigKeys(markdown) {
+  const start = markdown.indexOf('## Complete Field Reference');
+  const end = markdown.indexOf('## Field Interactions');
+  const relevant =
+    start >= 0 && end > start ? markdown.slice(start, end) : markdown;
+  const keys = new Set();
+
+  for (const line of relevant.split(/\r?\n/)) {
+    const match = line.match(/^\|\s*`([^`]+)`\s*\|/);
+    if (match) {
+      keys.add(match[1]);
+    }
+  }
+  return [...keys];
+}
+
 function runVerifier(options = {}) {
   const env = { ...process.env };
   if (options.root) {
@@ -237,9 +257,15 @@ function createRootFixture(t, warningSummaryContent) {
     )
   );
 
-  const passingEntry = path.join(fixtureRoot, 'warning-disclosure-pass.test.cjs');
+  const blockerEntry = path.join(fixtureRoot, 'fixture-blocker-pass.test.cjs');
   writeFile(
-    passingEntry,
+    blockerEntry,
+    "'use strict';\nconst { test } = require('node:test');\ntest('fixture blocker verifier passes', () => {});\n"
+  );
+
+  const warningEntry = path.join(fixtureRoot, 'warning-disclosure-pass.test.cjs');
+  writeFile(
+    warningEntry,
     "'use strict';\nconst { test } = require('node:test');\ntest('fixture warning verifier passes', () => {});\n"
   );
 
@@ -254,7 +280,7 @@ function createRootFixture(t, warningSummaryContent) {
             id: 'fixture-blocker',
             path: 'docs/CONFIGURATION.md',
             expected_check: 'fixture blocker stays green',
-            verification_entry: passingEntry,
+            verification_entry: blockerEntry,
           },
         ],
       },
@@ -267,7 +293,7 @@ function createRootFixture(t, warningSummaryContent) {
             id: 'fixture-warning-disclosure',
             path: 'docs/ja-JP/COMMANDS.md',
             expected_check: 'warning summaries must disclose mirror or fallback limits',
-            verification_entry: passingEntry,
+            verification_entry: warningEntry,
           },
         ],
       },
@@ -365,7 +391,7 @@ describe('localization governance manifest coverage', () => {
 
     assert.notEqual(result.status, 0, 'mixed-disposition shared entry should fail fast');
     assert.match(result.stderr, /mixed-disposition/i);
-    assert.match(result.stderr, new RegExp(sharedEntry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(result.stderr, new RegExp(escapeRegExp(sharedEntry)));
     assert.match(result.stderr, /blocker/);
     assert.match(result.stderr, /warning/);
     assert.doesNotMatch(result.stdout, /## Blocker/);
@@ -444,7 +470,7 @@ describe('localization governance documentation alignment', () => {
     const configuration = read(CONFIG_DOC_PATH);
     const codeReviewWorkflow = read(CODE_REVIEW_WORKFLOW_PATH);
 
-    assert.match(planningConfig, /"quick", "standard", "deep"/);
+    assert.match(planningConfig, /`"quick"`[\s\S]*`"standard"`[\s\S]*`"deep"`/);
     assert.match(configuration, /`quick`[\s\S]*`standard`[\s\S]*`deep`/);
     assert.match(codeReviewWorkflow, /quick\|standard\|deep/);
   });
@@ -456,17 +482,21 @@ describe('localization governance documentation alignment', () => {
       getDocumentableConfigExemptions,
     } = require('../get-shit-done/bin/lib/config.cjs');
     const planningConfig = read(PLANNING_CONFIG_DOC_PATH);
+    const documentedKeys = extractDocumentedConfigKeys(planningConfig).sort();
     const materialized = buildNewProjectConfig({});
     const keys = getDocumentableConfigKeys(materialized);
     const exemptions = new Set(getDocumentableConfigExemptions());
+    const staticDocumentedKeys = documentedKeys.filter(key => !exemptions.has(key));
+
+    assert.deepStrictEqual(
+      staticDocumentedKeys,
+      keys.filter(key => !exemptions.has(key)),
+      'planning-config.md Complete Field Reference should cover every static non-exempt config key'
+    );
 
     for (const key of keys) {
       assert.ok(!exemptions.has(key), `documentable key ${key} must not be exempt`);
-      assert.match(
-        planningConfig,
-        new RegExp('`' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '`'),
-        `planning-config.md should document ${key}`
-      );
+      assert.ok(documentedKeys.includes(key), `planning-config.md should document ${key}`);
     }
 
     for (const requiredKey of [

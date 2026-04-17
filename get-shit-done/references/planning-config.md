@@ -274,8 +274,17 @@ Set via `workflow.*` namespace in config.json (e.g., `"workflow": { "research": 
 | `workflow.use_worktrees` | boolean | `true` | `true`, `false` | Run executor agents in isolated git worktrees |
 | `workflow.subagent_timeout` | number | `300000` | Any positive integer (ms) | Timeout for parallel subagent tasks (default: 5 minutes) |
 | `workflow.inline_plan_threshold` | number | `2` | `0`–`10` | Plans with ≤N tasks execute inline instead of spawning a subagent |
+| `workflow.tdd_mode` | boolean | `false` | `true`, `false` | Enable TDD execution mode for plans and init flows that opt into RED/GREEN/REFACTOR behavior. |
 | `workflow.code_review` | boolean | `true` | `true`, `false` | Enable built-in code review step in the ship workflow |
-| `workflow.code_review_depth` | string | `"standard"` | "quick", "standard", "deep" | Depth level for code review analysis in the ship workflow |
+| `workflow.code_review_depth` | string | `"standard"` | `"quick"`, `"standard"`, `"deep"` | Depth level for code review analysis in the ship workflow |
+| `workflow.code_review_command` | string\|null | `null` | Any shell command string | Optional override command for the ship workflow code review step. When `null`, GSD uses the built-in `/gsd-code-review` path. |
+| `workflow.pattern_mapper` | boolean | `true` | `true`, `false` | Control whether plan-phase spawns the optional pattern-mapper agent when context and research artifacts exist. |
+| `workflow.plan_bounce` | boolean | `false` | `true`, `false` | Enable external plan bounce refinement when `--bounce` is used or config forces it. |
+| `workflow.plan_bounce_script` | string\|null | `null` | Relative or absolute script path | Script path used for plan bounce refinement. Required only when `workflow.plan_bounce` is enabled. |
+| `workflow.plan_bounce_passes` | number | `2` | Any positive integer | Number of bounce refinement passes to run before finalizing a plan. |
+| `workflow.cross_ai_execution` | boolean | `false` | `true`, `false` | Allow execute-phase to route eligible plans through an external cross-AI command when plan frontmatter also opts in. |
+| `workflow.cross_ai_command` | string | `""` | Any shell command string | Command used to invoke the external cross-AI reviewer or executor. Must be set before cross-AI execution can run. |
+| `workflow.cross_ai_timeout` | number | `300` | Any positive integer (seconds) | Timeout in seconds for each cross-AI execution attempt during execute-phase. |
 | `workflow._auto_chain_active` | boolean | `false` | `true`, `false` | Internal: tracks whether autonomous chaining is active |
 
 ### Git Fields
@@ -333,6 +342,15 @@ Set via `intel.*` namespace (e.g., `"intel": { "enabled": true }`). Controls the
 |-----|------|---------|----------------|-------------|
 | `intel.enabled` | boolean | `false` | `true`, `false` | Enable queryable codebase intelligence system. When `true`, `/gsd-intel` commands build and query a JSON index in `.planning/intel/`. |
 
+### Graphify Fields
+
+Set via `graphify.*` namespace (e.g., `"graphify": { "enabled": true }`). Controls the optional graphify-backed code graph tooling.
+
+| Key | Type | Default | Allowed Values | Description |
+|-----|------|---------|----------------|-------------|
+| `graphify.enabled` | boolean | `false` | `true`, `false` | Enable graphify-backed graph commands. When `false`, graphify subcommands return the documented disabled response. |
+| `graphify.build_timeout` | number | `300` | Any positive integer (seconds) | Timeout in seconds for `graphify build` preflight and subprocess execution. |
+
 ### Manager Fields
 
 Set via `manager.*` namespace (e.g., `"manager": { "flags": { "discuss": "--auto" } }`).
@@ -351,6 +369,7 @@ Set via `manager.*` namespace (e.g., `"manager": { "flags": { "discuss": "--auto
 | `model_overrides` | object\|null | `null` | `{ "<agent-type>": "<model-id>" }` | Override model selection per agent type |
 | `agent_skills` | object | `{}` | `{ "<agent-type>": "<skill-set>" }` | Assign skill sets to specific agent types |
 | `sub_repos` | array | `[]` | Array of relative path strings | Child directories with independent `.git` repos (auto-detected) |
+| `claude_md_path` | string | `"./CLAUDE.md"` | Any relative or absolute file path | Preferred `CLAUDE.md` location for profile-output and related tooling when generating or updating agent instructions. |
 
 ### Planning Fields
 

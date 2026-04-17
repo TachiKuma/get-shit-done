@@ -98,7 +98,7 @@ function validateVerificationEntries(manifest) {
   }
 
   if (conflicts.length > 0) {
-    throw new Error(conflicts.join('; '));
+    throw new Error(`mixed-disposition shared verification_entry detected: ${conflicts.join('; ')}`);
   }
 }
 
