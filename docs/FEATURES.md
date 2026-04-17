@@ -1382,15 +1382,22 @@ Test suite that scans all agent, workflow, and command files for embedded inject
 
 **Part of:** `docs/`
 
-**Purpose:** Provide GSD documentation in Portuguese, Korean, and Japanese.
+**Purpose:** Provide localized documentation while keeping English canonical sources and first-batch governance boundaries explicit.
 
 **Requirements:**
-- REQ-I18N-01: Documentation MUST be available in Portuguese (pt), Korean (ko), and Japanese (ja)
-- REQ-I18N-02: Translations MUST stay synchronized with English source documents
+- REQ-I18N-01: Documentation MUST expose localized entry points for supported locales, with `en + zh-CN` treated as the current first-batch commitment
+- REQ-I18N-02: First-batch mirrors MUST stay synchronized with English canonical source documents, while `summary-only locale` mirrors stay visible as warning-only governance surfaces
 
 **Process:**
-1. **Translate** — Convert core documentation into target languages
-2. **Publish** — Make translated documentation accessible alongside English originals
+1. **Author in English canonical** — Update `docs/README.md`, `docs/COMMANDS.md`, and other English canonical sources first
+2. **Sync first-batch mirrors** — Keep first-batch `mirror` surfaces aligned for `en + zh-CN`
+3. **Report summary-only locales** — Keep `ja-JP`, `ko-KR`, and `pt-BR` as `summary-only locale` entry points with explicit English canonical fallback disclosure
+4. **Verify governance** — Run `node scripts/verify-localization-governance.cjs` to report `blocker`, `warning`, and `deferred` localization drift results
+
+**Governance boundary:**
+- `blocker`: first-batch `en + zh-CN` mirrors, locale catalogs, and priority workflow/config localization contract
+- `warning`: non-first-batch `summary-only locale` surfaces such as `docs/ja-JP/COMMANDS.md`, `docs/ko-KR/COMMANDS.md`, and `docs/pt-BR/COMMANDS.md`
+- `deferred`: broader locale mirrors and non-priority surfaces that stay tracked without entering the hard gate
 
 ---
 
@@ -1850,6 +1857,11 @@ Test suite that scans all agent, workflow, and command files for embedded inject
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `response_language` | string | (none) | Language code for agent responses (e.g., `"pt"`, `"ko"`, `"ja"`) |
+
+**Localization governance:**
+- `response_language` controls generated content and must preserve the `canonical locale` and `fallback` contract documented in `docs/CONFIGURATION.md`.
+- The first-batch hard gate is `en + zh-CN`; non-first-batch locale docs remain `summary-only locale` surfaces unless explicitly upgraded.
+- `node scripts/verify-localization-governance.cjs` is the public governance command for checking whether `response_language`-related docs, workflows, mirrors, and catalogs still match the English canonical contract.
 
 ---
 

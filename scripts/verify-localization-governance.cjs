@@ -1,6 +1,5 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { loadLocaleCatalog } = require('../get-shit-done/bin/lib/locale.cjs');
@@ -17,6 +16,8 @@ const results = {
   warning: [],
   deferred: [],
 };
+
+const DRIFT_POLICY_PATH = 'get-shit-done/references/localization-drift-policy.md';
 
 function record(disposition, label, ok, detail) {
   results[disposition].push({ label, ok, detail });
@@ -63,6 +64,7 @@ function verifyManifestPresence() {
 function verifyGovernanceDocsAlignment() {
   const glossary = readRepoFile('get-shit-done/references/localization-glossary.md');
   const playbook = readRepoFile('get-shit-done/references/localization-sync-playbook.md');
+  const driftPolicy = readRepoFile(DRIFT_POLICY_PATH);
   const configuration = readRepoFile('docs/CONFIGURATION.md');
   const planningConfig = readRepoFile('get-shit-done/references/planning-config.md');
 
@@ -75,11 +77,29 @@ function verifyGovernanceDocsAlignment() {
       ['trigger', 'owner', 'blocker', 'warning', 'English canonical'].every(token =>
         playbook.includes(token)
       ) &&
+      ['blocker', 'warning', 'deferred', 'summary-only locale', 'non-first-batch'].every(token =>
+        driftPolicy.includes(token)
+      ) &&
+      driftPolicy.includes('localization-governance-surfaces.json') &&
+      driftPolicy.includes('verify-localization-governance.cjs') &&
       configuration.includes('localization-glossary.md') &&
       configuration.includes('localization-sync-playbook.md') &&
       planningConfig.includes('localization-glossary.md') &&
       planningConfig.includes('localization-sync-playbook.md'),
-    'glossary, playbook, public config docs, and maintainer config docs must stay linked by the same governance wording'
+    'glossary, playbook, drift policy, public config docs, and maintainer config docs must stay linked by the same governance wording'
+  );
+}
+
+function verifyFeatureDocsAlignment() {
+  const features = readRepoFile('docs/FEATURES.md');
+
+  record(
+    'blocker',
+    'docs:features-localization-governance',
+    ['response_language', 'verify-localization-governance.cjs', 'first-batch', 'summary-only locale', 'English canonical'].every(
+      token => features.includes(token)
+    ),
+    'feature docs must describe the localization governance command and the first-batch versus summary-only boundary'
   );
 }
 
@@ -169,11 +189,18 @@ function printSection(title, entries) {
 
 verifyManifestPresence();
 verifyGovernanceDocsAlignment();
+verifyFeatureDocsAlignment();
 runNodeStep(
   'runtime-smoke',
   [path.join('scripts', 'verify-locale-runtime.cjs')],
   'blocker',
   'runtime smoke check should pass for blocker workflow and runtime catalog surfaces'
+);
+runNodeStep(
+  'asset-smoke',
+  [path.join('scripts', 'verify-asset-localization.cjs')],
+  'warning',
+  'asset smoke check is reused for governance reporting; blocker gating stays driven by policy-specific first-batch checks'
 );
 runNodeStep(
   'governance-coverage-test',

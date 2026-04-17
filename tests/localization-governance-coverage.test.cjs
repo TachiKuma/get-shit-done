@@ -12,6 +12,27 @@ const {
 } = require('../scripts/lib/localization-governance.cjs');
 
 describe('localization governance manifest coverage', () => {
+  test('drift policy defines blocker, warning, and deferred handling for English canonical changes', () => {
+    const driftPolicy = fs.readFileSync(
+      path.join(ROOT, 'get-shit-done', 'references', 'localization-drift-policy.md'),
+      'utf8'
+    );
+
+    for (const token of [
+      'blocker',
+      'warning',
+      'deferred',
+      'English canonical',
+      'first-batch',
+      'non-first-batch',
+      'summary-only locale',
+      'verify-localization-governance.cjs',
+      'localization-governance-surfaces.json',
+    ]) {
+      assert.match(driftPolicy, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+  });
+
   test('manifest defines blocker, warning, and deferred surfaces', () => {
     const manifest = loadGovernanceManifest();
     const dispositions = manifest.surface_groups.map(group => group.disposition);
@@ -82,6 +103,10 @@ describe('localization governance manifest coverage', () => {
       path.join(ROOT, 'get-shit-done', 'references', 'localization-sync-playbook.md'),
       'utf8'
     );
+    const driftPolicy = fs.readFileSync(
+      path.join(ROOT, 'get-shit-done', 'references', 'localization-drift-policy.md'),
+      'utf8'
+    );
     const configuration = fs.readFileSync(path.join(ROOT, 'docs', 'CONFIGURATION.md'), 'utf8');
     const planningConfig = fs.readFileSync(
       path.join(ROOT, 'get-shit-done', 'references', 'planning-config.md'),
@@ -91,14 +116,41 @@ describe('localization governance manifest coverage', () => {
     for (const token of ['canonical locale', 'English canonical', 'fallback', 'response_language']) {
       assert.match(glossary, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
       assert.match(playbook, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
+      assert.match(driftPolicy, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
       assert.match(configuration, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
       assert.match(planningConfig, new RegExp(token.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')));
     }
 
     assert.match(playbook, /localization-governance-surfaces\.json/);
+    assert.match(driftPolicy, /localization-governance-surfaces\.json/);
+    assert.match(driftPolicy, /verify-localization-governance\.cjs/);
     assert.match(configuration, /localization-glossary\.md/);
     assert.match(configuration, /localization-sync-playbook\.md/);
     assert.match(planningConfig, /localization-glossary\.md/);
     assert.match(planningConfig, /localization-sync-playbook\.md/);
+  });
+
+  test('feature docs and verifier source describe the same governance gate boundary', () => {
+    const features = fs.readFileSync(path.join(ROOT, 'docs', 'FEATURES.md'), 'utf8');
+    const verifier = fs.readFileSync(
+      path.join(ROOT, 'scripts', 'verify-localization-governance.cjs'),
+      'utf8'
+    );
+
+    for (const token of [
+      'response_language',
+      'verify-localization-governance.cjs',
+      'first-batch',
+      'summary-only locale',
+      'English canonical',
+    ]) {
+      assert.match(features, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    assert.match(verifier, /verify-locale-runtime\.cjs/);
+    assert.match(verifier, /verify-asset-localization\.cjs/);
+    assert.match(verifier, /localization-drift-policy\.md/);
+    assert.match(verifier, /printSection\('Warning', results\.warning\)/);
+    assert.match(verifier, /printSection\('Deferred', results\.deferred\)/);
   });
 });
