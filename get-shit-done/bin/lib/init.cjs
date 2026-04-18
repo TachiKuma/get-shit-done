@@ -46,6 +46,22 @@ function withProjectRoot(cwd, result) {
   if (responseLanguage) {
     result.response_language = responseLanguage;
   }
+  // Inject project identity into all init outputs so handoff blocks
+  // can include project context for cross-session continuity.
+  if (config.project_code) {
+    result.project_code = config.project_code;
+  }
+  // Extract project title from PROJECT.md first H1 heading.
+  const projectMdPath = path.join(planningDir(cwd), 'PROJECT.md');
+  try {
+    if (fs.existsSync(projectMdPath)) {
+      const content = fs.readFileSync(projectMdPath, 'utf8');
+      const h1Match = content.match(/^#\s+(.+)$/m);
+      if (h1Match) {
+        result.project_title = h1Match[1].trim();
+      }
+    }
+  } catch { /* intentionally empty */ }
   return result;
 }
 
@@ -240,6 +256,12 @@ function cmdInitPlanPhase(cwd, phase, raw, options = {}) {
     nyquist_validation_enabled: config.nyquist_validation,
     commit_docs: config.commit_docs,
     text_mode: config.text_mode,
+    // Auto-advance config — included so workflows don't need separate config-get
+    // calls for these values, which causes infinite config-read loops on some models
+    // (e.g. Kimi K2.5). See #2192.
+    auto_advance: !!(config.auto_advance),
+    auto_chain_active: !!(config._auto_chain_active),
+    mode: config.mode || 'interactive',
 
     // Phase info
     phase_found: !!phaseInfo,
@@ -859,6 +881,7 @@ function cmdInitMilestoneOp(cwd, raw) {
 
 function cmdInitMapCodebase(cwd, raw) {
   const config = loadConfig(cwd);
+  const now = new Date();
 
   // Check for existing codebase maps
   const codebaseDir = path.join(planningRoot(cwd), 'codebase');
@@ -876,6 +899,10 @@ function cmdInitMapCodebase(cwd, raw) {
     search_gitignored: config.search_gitignored,
     parallelization: config.parallelization,
     subagent_timeout: config.subagent_timeout,
+
+    // Timestamps
+    date: now.toISOString().split('T')[0],
+    timestamp: now.toISOString(),
 
     // Paths
     codebase_dir: '.planning/codebase',
@@ -1026,6 +1053,17 @@ function cmdInitManager(cwd, raw) {
 
   // Dependency satisfaction: check if all depends_on phases are complete
   const completedNums = new Set(phases.filter(p => p.disk_status === 'complete').map(p => p.number));
+
+  // Also include phases from previously shipped milestones — they are all
+  // complete by definition (a milestone only ships when all phases are done).
+  // rawContent is the full ROADMAP.md (including <details>-wrapped shipped
+  // milestone sections that extractCurrentMilestone strips out).
+  const _allCompletedPattern = /-\s*\[x\]\s*.*Phase\s+(\d+[A-Z]?(?:\.\d+)*)[:\s]/gi;
+  let _allMatch;
+  while ((_allMatch = _allCompletedPattern.exec(rawContent)) !== null) {
+    completedNums.add(_allMatch[1]);
+  }
+
   for (const phase of phases) {
     if (!phase.depends_on || /^none$/i.test(phase.depends_on.trim())) {
       phase.deps_satisfied = true;
@@ -1044,15 +1082,10 @@ function cmdInitManager(cwd, raw) {
       : '—';
   }
 
-  // Sliding window: discuss is sequential — only the first undiscussed phase is available
-  let foundNextToDiscuss = false;
   for (const phase of phases) {
-    if (!foundNextToDiscuss && (phase.disk_status === 'empty' || phase.disk_status === 'no_directory')) {
-      phase.is_next_to_discuss = true;
-      foundNextToDiscuss = true;
-    } else {
-      phase.is_next_to_discuss = false;
-    }
+    phase.is_next_to_discuss =
+      (phase.disk_status === 'empty' || phase.disk_status === 'no_directory') &&
+      phase.deps_satisfied;
   }
 
   // Check for WAITING.json signal
@@ -1180,6 +1213,10 @@ function cmdInitManager(cwd, raw) {
 }
 
 function cmdInitProgress(cwd, raw) {
+  try {
+    const { pruneOrphanedWorktrees } = require('./core.cjs');
+    pruneOrphanedWorktrees(cwd);
+  } catch (_) {}
   const config = loadConfig(cwd);
   const milestone = getMilestoneInfo(cwd);
 
@@ -1660,14 +1697,14 @@ function buildSkillManifest(cwd, skillsDir = null) {
       kind: 'skills',
     },
     {
-      root: '~/.claude/get-shit-done/skills',
+      root: '.claude/get-shit-done/skills',
       path: path.join(os.homedir(), '.claude', 'get-shit-done', 'skills'),
       scope: 'import-only',
       kind: 'skills',
       deprecated: true,
     },
     {
-      root: '~/.claude/commands/gsd',
+      root: '.claude/commands/gsd',
       path: path.join(os.homedir(), '.claude', 'commands', 'gsd'),
       scope: 'legacy-commands',
       kind: 'commands',
