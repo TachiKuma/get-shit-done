@@ -24,4 +24,5 @@
 
 - このページは summary only です。
 - 完全な syntax、flags、options、examples は常に [English canonical](../COMMANDS.md) を参照してください。
+- `/gsd-review --cursor` を含む高度な review flags は [English canonical](../COMMANDS.md) を正本とします。
 - command IDs、paths、code、tool names は英語のまま維持されます。

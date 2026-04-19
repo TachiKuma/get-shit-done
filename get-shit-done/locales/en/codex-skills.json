@@ -1,0 +1,14 @@
+{
+  "codex-skills.gsd-new-milestone.description": "Start a new milestone cycle — update PROJECT.md and route to requirements",
+  "codex-skills.gsd-new-milestone.short-description": "Start a new milestone cycle and route into requirements planning",
+  "codex-skills.gsd-progress.description": "Check project progress, show context, and route to next action (execute or plan). Use --forensic to append a 6-check integrity audit after the standard report.",
+  "codex-skills.gsd-progress.short-description": "Check progress, inspect context, and route to the next execution or planning step",
+  "codex-skills.gsd-discuss-phase.description": "Gather phase context through adaptive questioning before planning. Use --all to skip area selection and discuss all gray areas interactively. Use --auto to skip interactive questions (Claude picks recommended defaults). Use --chain for interactive discuss followed by automatic plan+execute. Use --power for bulk question generation into a file-based UI (answer at your own pace).",
+  "codex-skills.gsd-discuss-phase.short-description": "Gather phase context and lock decisions before planning",
+  "codex-skills.gsd-plan-phase.description": "Create detailed phase plan (PLAN.md) with verification loop",
+  "codex-skills.gsd-plan-phase.short-description": "Create a detailed phase plan and verify it before execution",
+  "codex-skills.gsd-execute-phase.description": "Execute all plans in a phase with wave-based parallelization",
+  "codex-skills.gsd-execute-phase.short-description": "Execute all plans in a phase using wave-based grouping",
+  "codex-skills.gsd-next.description": "Automatically advance to the next logical step in the GSD workflow",
+  "codex-skills.gsd-next.short-description": "Advance to the next logical step in the GSD workflow"
+}

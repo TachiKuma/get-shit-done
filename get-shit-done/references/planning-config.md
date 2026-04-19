@@ -46,9 +46,26 @@ Configuration options for `.planning/` directory behavior.
 
 - Recommended values use BCP 47 canonical locale tags such as `en`, `zh-CN`, `ja-JP`, `ko-KR`, and `pt-BR`.
 - Alias compatibility exists only at the input boundary; internal runtime objects, workflows, and locale catalogs consume canonical locale values only.
-- `English canonical` sources remain authoritative even when mirror or summary-only locale docs exist.
+- Runtime generated output, installer fixed-string output, and Codex install-time display metadata are three separate localization chains that all start from the same normalized canonical locale.
+- Runtime generated output uses `response_language` for agent responses and other generated user-facing output during execution.
+- Installer fixed-string output uses the `installer` locale catalog for install-time and uninstall-time CLI copy such as progress lines, help text, prompts, warnings, and completion messages.
+- Codex install output uses the `codex-skills` locale catalog only for the generated `SKILL.md` display-layer fields `description` and `metadata.short-description`.
+- The official v1.1 Codex install-display contract is intentionally limited to these six skills: `gsd-new-milestone`, `gsd-progress`, `gsd-discuss-phase`, `gsd-plan-phase`, `gsd-execute-phase`, and `gsd-next`.
+- `English canonical` sources remain authoritative even when mirror or summary-only locale docs exist, including commands, workflows, maintainer references, skill bodies, and Codex adapter content.
 - First-batch fallback order is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
-- Commands, paths, code snippets, file names, and key technical terms remain in English.
+- For Codex install output, `zh-CN -> en` also applies to the `codex-skills` display pair. If locale data is incomplete or unsupported, the installer falls back to the full English canonical value for that field instead of mixing languages.
+- Wider `gsd-*` Codex display coverage remains deferred roadmap work; this contract does not imply localization for other skills yet.
+- Commands, paths, code snippets, file names, command names, flags, frontmatter structure keys, and key technical terms remain in English.
+- Minimal Codex example:
+  - `.planning/config.json` contains `"response_language": "zh-CN"`
+  - `node bin/install.js --codex --local` resolves `description` and `metadata.short-description` from `get-shit-done/locales/<locale>/codex-skills.json`
+  - Covered skills: `gsd-new-milestone`, `gsd-progress`, `gsd-discuss-phase`, `gsd-plan-phase`, `gsd-execute-phase`, `gsd-next`
+  - `name`, skill body, `codex_skill_adapter`, command names, flags, paths, and structural keys stay `English canonical`
+- Minimal installer-output example:
+  - `.planning/config.json` contains `"response_language": "zh-CN"`
+  - `node bin/install.js --help` resolves headings, option descriptions, examples, and notes from `get-shit-done/locales/<locale>/installer.json`
+  - Install/uninstall progress lines, prompts, warnings, and completion messages use the same `installer` locale catalog
+  - Runtime names, command flags, paths, file names, and structural keys stay `English canonical`
 - Reuse the canonical wording from `get-shit-done/references/localization-glossary.md` when documenting canonical locale, fallback, mirror, drift, and Do Not Translate boundaries.
 - Follow `get-shit-done/references/localization-sync-playbook.md` when an English canonical update touches a blocker or warning surface from `get-shit-done/references/localization-governance-surfaces.json`.
 

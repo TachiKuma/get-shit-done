@@ -47,6 +47,20 @@ npx get-shit-done-cc@latest
 
 ---
 
+> [!IMPORTANT]
+> ### 欢迎回到 GSD
+>
+> 如果你是因为最近 Anthropic Terms of Service 的变化而重新回来使用 GSD，欢迎回来。你离开的这段时间里，GSD 一直在继续演进。
+>
+> **将一个已有项目重新导入 GSD：**
+> 1. 运行 `/gsd-map-codebase` 扫描并索引当前代码库状态
+> 2. 运行 `/gsd-new-project`，基于代码库映射结果初始化新的 GSD planning 结构
+> 3. 阅读 [docs/zh-CN/USER-GUIDE.md](docs/zh-CN/USER-GUIDE.md) 与 [CHANGELOG](CHANGELOG.md)，了解这段时间新增的变化
+>
+> 你的代码本身没有问题。GSD 只是需要把规划上下文重新建立起来，上面两个命令就是为此准备的。
+
+---
+
 ## 我为什么做这个
 
 我是独立开发者。我不写代码，Claude Code 写。
@@ -73,10 +87,13 @@ GSD 解决的就是这个问题。它是让 Claude Code 变得可靠的上下文
 
 适合那些想把自己的需求说明白，然后让系统正确构建出来的人，而不是假装自己在运营一个 50 人工程组织的人。
 
-### 当前版本说明
+内建的质量门会捕捉真正的问题：schema drift detection 能发现 ORM 变更缺少 migration，security enforcement 会把验证锚定到 threat model，scope reduction detection 会阻止 planner 悄悄把你的需求裁掉。
 
-- 最新版本亮点、完整运行时矩阵和安装细节以 [English README](README.md#v1360-highlights) 与 [CHANGELOG](CHANGELOG.md) 为准。
-- 当前中文 README 主要提供高价值入口、基础安装说明和本地化导航；若细节与英文 canonical 不一致，请优先回退英文。
+### v1.37.0 亮点
+
+- **Spiking 与 sketching**：`/gsd-spike` 可运行 2-5 个聚焦实验并输出 Given/When/Then 结论；`/gsd-sketch` 会针对一个设计问题产出 2-3 个可交互 HTML mockup 变体，两者都会把结果写入 `.planning/`，并可用 wrap-up 命令封装为项目本地 skill
+- **Agent size-budget enforcement**：分级行数预算（XL: 1600、Large: 1000、Default: 500）让 agent prompt 保持精简，超限会在 CI 里暴露
+- **共享 boilerplate 抽取**：mandatory-initial-read 与 project-skills-discovery 的公共逻辑被抽到 reference 文件中，减少十多个 agent 间的重复
 
 ---
 
@@ -87,7 +104,7 @@ npx get-shit-done-cc@latest
 ```
 
 安装器会提示你选择：
-1. **运行时**：Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy、Cline，或全部
+1. **运行时**：Claude Code、OpenCode、Gemini、Kilo、Codex、Copilot、Cursor、Windsurf、Antigravity、Augment、Trae、Qwen Code、CodeBuddy、Cline，或全部（交互式多选，可在一次安装会话里选多个运行时）
 2. **安装位置**：全局（所有项目）或本地（仅当前项目）
 
 安装后可这样验证：
@@ -96,8 +113,13 @@ npx get-shit-done-cc@latest
 - Codex：`$gsd-help`
 - Cline：GSD 通过 `.clinerules` 安装 — 检查 `.clinerules` 是否存在
 
+> [!TIP]
+> 如果当前目录已经存在 `.planning/config.json`，并且设置了 `response_language`，安装器的帮助文本、安装/卸载进度、提示、警告和完成消息会跟随该 canonical locale 输出；如果当前目录没有项目配置，则安装器默认使用英文。命令标志、路径、文件名以及 `Codex`、`Qwen Code`、`CodeBuddy` 这类 runtime 名称仍保持英文。
+
 > [!NOTE]
-> Claude Code 2.1.88+ 和 Codex 以 skill 形式安装（`skills/gsd-*/SKILL.md`）。Cline 使用 `.clinerules`。安装器会自动处理所有格式。
+> Claude Code 2.1.88+、Qwen Code 与 Codex 会以 skill 形式安装（`.claude/skills/`、`./.codex/skills/`，以及对应的全局 `~/.claude/skills/` / `~/.codex/skills/` 根目录）。较老版本的 Claude Code 仍使用 `commands/gsd/`。`~/.claude/get-shit-done/skills/` 仅用于 legacy migration 导入。安装器会自动处理所有格式。
+
+规范化的 skills discovery contract 见 [docs/skills/discovery-contract.md](docs/skills/discovery-contract.md)。
 
 > [!TIP]
 > 基于源码安装或无法使用 npm 的环境，请参阅 **[docs/manual-update.md](docs/manual-update.md)**。
@@ -140,6 +162,10 @@ npx get-shit-done-cc --copilot --local   # 安装到 ./.github/
 npx get-shit-done-cc --cursor --global   # 安装到 ~/.cursor/
 npx get-shit-done-cc --cursor --local    # 安装到 ./.cursor/
 
+# Windsurf
+npx get-shit-done-cc --windsurf --global # 安装到 ~/.codeium/windsurf/
+npx get-shit-done-cc --windsurf --local  # 安装到 ./.windsurf/
+
 # Antigravity
 npx get-shit-done-cc --antigravity --global # 安装到 ~/.gemini/antigravity/
 npx get-shit-done-cc --antigravity --local  # 安装到 ./.agent/
@@ -151,6 +177,10 @@ npx get-shit-done-cc --augment --local      # 安装到 ./.augment/
 # Trae
 npx get-shit-done-cc --trae --global     # 安装到 ~/.trae/
 npx get-shit-done-cc --trae --local      # 安装到 ./.trae/
+
+# Qwen Code
+npx get-shit-done-cc --qwen --global     # 安装到 ~/.qwen/
+npx get-shit-done-cc --qwen --local      # 安装到 ./.qwen/
 
 # CodeBuddy
 npx get-shit-done-cc --codebuddy --global # 安装到 ~/.codebuddy/
@@ -165,22 +195,26 @@ npx get-shit-done-cc --all --global      # 安装到所有目录
 ```
 
 使用 `--global`（`-g`）或 `--local`（`-l`）可以跳过安装位置提示。
-使用 `--claude`、`--opencode`、`--gemini`、`--kilo`、`--codex`、`--copilot`、`--cursor`、`--windsurf`、`--antigravity`、`--augment`、`--trae`、`--codebuddy`、`--cline` 或 `--all` 可以跳过运行时提示。
+使用 `--claude`、`--opencode`、`--gemini`、`--kilo`、`--codex`、`--copilot`、`--cursor`、`--windsurf`、`--antigravity`、`--augment`、`--trae`、`--qwen`、`--codebuddy`、`--cline` 或 `--all` 可以跳过运行时提示。
+GSD SDK CLI（`gsd-sdk`）默认会自动安装，因为 `/gsd-*` 命令依赖它；传 `--no-sdk` 可跳过 SDK 安装，传 `--sdk` 可强制重装。
 
 </details>
 
 <details>
 <summary><strong>开发安装</strong></summary>
 
-克隆仓库并在本地运行安装器：
+克隆仓库、构建 hooks，并在本地运行安装器：
 
 ```bash
 git clone https://github.com/gsd-build/get-shit-done.git
 cd get-shit-done
+npm run build:hooks
 node bin/install.js --claude --local
 ```
 
-这样会安装到 `./.claude/`，方便你在贡献代码前测试自己的改动。
+`build:hooks` 是必需步骤，它会把 hook 源码编译到 `hooks/dist/`，安装器就是从这里复制 hook。没有这一步，hooks 不会被正确安装，你会在 Claude Code 里看到 hook 错误。（npm release 通过 `prepublishOnly` 自动完成这一步。）
+
+这样会安装到 `./.claude/`，方便你在贡献前先验证本地改动。
 
 </details>
 
@@ -278,6 +312,8 @@ claude --dangerously-skip-permissions
 你在这里给出的信息越具体，系统越能构建出你真正想要的东西。跳过它，你拿到的是合理默认值；用好它，你拿到的是 *你的* 方案。
 
 **生成：** `{phase_num}-CONTEXT.md`
+
+> **Assumptions Mode：** 如果你更希望系统先分析代码库而不是直接提问，可在 `/gsd-settings` 中把 `workflow.discuss_mode` 设为 `assumptions`。系统会先读取现有代码，给出它准备怎么做以及原因，再只让你修正错误的部分。详见 [Discuss Mode](docs/workflow-discuss-mode.md)。
 
 ---
 
@@ -394,7 +430,7 @@ claude --dangerously-skip-permissions
 
 循环执行 **讨论 → 规划 → 执行 → 验证 → 发布**，直到整个里程碑完成。
 
-如果你希望在讨论阶段更快收集信息，可以用 `/gsd-discuss-phase <n> --batch`，一次回答一小组问题，而不是逐个问答。
+如果你希望在讨论阶段更快收集信息，可以用 `/gsd-discuss-phase <n> --batch`，一次回答一小组问题，而不是逐个问答。也可以用 `--chain`，让 discuss 结束后自动串到 plan+execute。
 
 每个阶段都会得到你的输入（discuss）、充分研究（plan）、干净执行（execute）和人工验证（verify）。上下文始终保持新鲜，质量也能持续稳定。
 
@@ -422,9 +458,9 @@ claude --dangerously-skip-permissions
 
 **`--research` 参数：** 在规划前拉起研究代理。调查实现方式、库选型和潜在坑点。适合你不确定怎么下手的场景。
 
-**`--full` 参数：** 启用计划检查（最多 2 轮迭代）和执行后验证。
+**`--validate` 参数：** 启用计划检查（最多 2 轮迭代）和执行后验证。
 
-参数可组合使用：`--discuss --research --full` 可同时获得讨论 + 研究 + 计划检查 + 验证。
+参数可组合使用：`--discuss --research --validate` 可同时获得讨论 + 研究 + 计划检查 + 验证。
 
 ```
 /gsd-quick
@@ -453,6 +489,8 @@ GSD 会替你处理：
 | `PLAN.md` | 带 XML 结构和验证步骤的原子任务 |
 | `SUMMARY.md` | 做了什么、改了什么、已写入历史 |
 | `todos/` | 留待后续处理的想法和任务 |
+| `threads/` | 跨会话工作的持久上下文线程 |
+| `seeds/` | 在合适里程碑自动浮现的前瞻性想法 |
 
 这些尺寸限制都是基于 Claude 在何处开始质量退化得出的。控制在阈值内，输出才能持续稳定。
 
@@ -525,7 +563,7 @@ lmn012o feat(08-02): create registration endpoint
 | 命令 | 作用 |
 |------|------|
 | `/gsd-new-project [--auto]` | 完整初始化：提问 → 研究 → 需求 → 路线图 |
-| `/gsd-discuss-phase [N] [--auto] [--analyze]` | 在规划前收集实现决策（`--analyze` 增加权衡分析） |
+| `/gsd-discuss-phase [N] [--auto] [--analyze] [--chain]` | 在规划前收集实现决策（`--analyze` 增加权衡分析，`--chain` 自动串到 plan+execute） |
 | `/gsd-plan-phase [N] [--auto] [--reviews]` | 为某个阶段执行研究 + 规划 + 验证（`--reviews` 加载代码库审查结果） |
 | `/gsd-execute-phase <N>` | 以并行 wave 执行全部计划，完成后验证 |
 | `/gsd-verify-work [N]` | 人工用户验收测试 ¹ |
@@ -555,6 +593,15 @@ lmn012o feat(08-02): create registration endpoint
 | `/gsd-list-workspaces` | 显示所有 GSD 工作区及其状态 |
 | `/gsd-remove-workspace` | 移除工作区并清理 worktree |
 
+### Spiking 与 Sketching
+
+| 命令 | 作用 |
+|------|------|
+| `/gsd-spike [idea] [--quick]` | 以一次性实验验证可行性，无需先初始化项目 |
+| `/gsd-sketch [idea] [--quick]` | 通过多变体 HTML mockup 快速探索设计方向，无需先初始化项目 |
+| `/gsd-spike-wrap-up` | 将 spike 结果封装成项目本地 skill，供后续构建会话复用 |
+| `/gsd-sketch-wrap-up` | 将 sketch 结果封装成项目本地 skill，供后续构建会话复用 |
+
 ### UI 设计
 
 | 命令 | 作用 |
@@ -571,6 +618,7 @@ lmn012o feat(08-02): create registration endpoint
 | `/gsd-help` | 显示全部命令和使用指南 |
 | `/gsd-update` | 更新 GSD，并预览变更日志 |
 | `/gsd-join-discord` | 加入 GSD Discord 社区 |
+| `/gsd-manager` | 交互式命令中心，用于管理多个 phase |
 
 ### Brownfield
 
@@ -593,8 +641,10 @@ lmn012o feat(08-02): create registration endpoint
 | 命令 | 作用 |
 |------|------|
 | `/gsd-review` | 对当前阶段或分支进行跨 AI 同行评审 |
+| `/gsd-secure-phase [N]` | 以 threat model 为锚点执行安全验证 |
 | `/gsd-pr-branch` | 创建过滤 `.planning/` 提交的干净 PR 分支 |
 | `/gsd-audit-uat` | 审计验证债务——找出缺少 UAT 的阶段 |
+| `/gsd-docs-update` | 通过 doc-writer 与 doc-verifier 代理生成并验证文档 |
 
 ### 积压
 
@@ -610,6 +660,15 @@ lmn012o feat(08-02): create registration endpoint
 | `/gsd-resume-work` | 从上一次会话恢复 |
 | `/gsd-session-report` | 生成会话摘要，包含已完成工作和结果 |
 
+### 积压与 Threads
+
+| 命令 | 作用 |
+|------|------|
+| `/gsd-plant-seed <idea>` | 记录带触发条件的前瞻性想法，在合适里程碑自动浮现 |
+| `/gsd-add-backlog <desc>` | 将想法加入 backlog parking lot（999.x 编号，不进入当前活跃序列） |
+| `/gsd-review-backlog` | 审查 backlog，并将条目提升到当前里程碑或清理过时项 |
+| `/gsd-thread [name]` | 持久上下文线程，用于跨会话延续长周期工作 |
+
 ### 工具
 
 | 命令 | 作用 |
@@ -621,7 +680,7 @@ lmn012o feat(08-02): create registration endpoint
 | `/gsd-debug [desc]` | 使用持久状态进行系统化调试 |
 | `/gsd-do <text>` | 将自由文本自动路由到正确的 GSD 命令 |
 | `/gsd-note <text>` | 零摩擦想法捕捉——追加、列出或提升为待办 |
-| `/gsd-quick [--full] [--discuss] [--research]` | 以 GSD 保障执行临时任务（`--full` 增加计划检查和验证，`--discuss` 先补上下文，`--research` 在规划前先调研） |
+| `/gsd-quick [--full] [--validate] [--discuss] [--research]` | 以 GSD 保障执行临时任务（`--validate` 增加计划检查和验证，`--discuss` 先补上下文，`--research` 在规划前先调研） |
 | `/gsd-health [--repair]` | 校验 `.planning/` 目录完整性，带 `--repair` 时自动修复 |
 | `/gsd-stats` | 显示项目统计——阶段、计划、需求、git 指标 |
 | `/gsd-profile-user [--questionnaire] [--refresh]` | 从会话分析生成开发者行为档案，用于个性化响应 |
@@ -640,6 +699,7 @@ GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-pr
 |---------|---------|---------|------|
 | `mode` | `yolo`, `interactive` | `interactive` | 自动批准，还是每一步确认 |
 | `granularity` | `coarse`, `standard`, `fine` | `standard` | phase 粒度，也就是范围切分得多细 |
+| `project_code` | string | `""` | 为 phase 目录增加项目代号前缀 |
 
 ### 模型 Profile
 
@@ -672,8 +732,10 @@ GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-pr
 | `workflow.verifier` | `true` | 执行后确认“必须交付项”是否已经落地 |
 | `workflow.auto_advance` | `false` | 自动串联 discuss → plan → execute，不中途停下 |
 | `workflow.research_before_questions` | `false` | 在讨论提问前先运行研究，而非之后 |
+| `workflow.discuss_mode` | `'discuss'` | 讨论模式：`discuss`（访谈式）或 `assumptions`（代码库优先） |
 | `workflow.skip_discuss` | `false` | 在自主模式下完全跳过讨论阶段 |
-| `workflow.discuss_mode` | `null` | 控制讨论阶段行为（`assumptions` 使用推断默认值） |
+| `workflow.text_mode` | `false` | 远程会话用的纯文本模式（不依赖 TUI 菜单） |
+| `workflow.use_worktrees` | `true` | 控制执行阶段是否启用 worktree 隔离 |
 
 可以用 `/gsd-settings` 开关这些项，也可以在单次命令里覆盖：
 - `/gsd-plan-phase --skip-research`
@@ -686,6 +748,16 @@ GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-pr
 | `parallelization.enabled` | `true` | 是否并行执行独立计划 |
 | `planning.commit_docs` | `true` | 是否将 `.planning/` 纳入 git 跟踪 |
 | `hooks.context_warnings` | `true` | 显示上下文窗口使用量警告 |
+
+### Agent Skills
+
+在执行时向子代理注入项目专属 skill。
+
+| Setting | Type | 作用 |
+|---------|------|------|
+| `agent_skills.<agent_type>` | `string[]` | 为指定 agent type 配置启动时要加载的 skill 目录 |
+
+这些 skills 会以 `<agent_skills>` block 的形式注入 agent prompt，让子代理继承项目特定知识。
 
 ### Git 分支策略
 
@@ -707,6 +779,20 @@ GSD 将项目设置保存在 `.planning/config.json`。你可以在 `/gsd-new-pr
 ---
 
 ## 安全
+
+### 内建安全加固
+
+GSD 自 v1.27 起内建纵深防御：
+
+- **Path traversal prevention**：所有用户传入的文件路径（如 `--text-file`、`--prd`）都会校验解析结果必须落在项目目录内
+- **Prompt injection detection**：集中化 `security.cjs` 模块会在用户文本进入 planning artifacts 前扫描注入模式
+- **PreToolUse prompt guard hook**：`gsd-prompt-guard` 会扫描写入 `.planning/` 的内容，发现潜在注入向量时给出 advisory 提示
+- **Safe JSON parsing**：畸形的 `--fields` 参数会在污染状态之前被拦截
+- **Shell argument validation**：用户文本在进入 shell interpolation 前会被清洗
+- **CI-ready injection scanner**：`prompt-injection-scan.test.cjs` 会扫描 agent/workflow/command 文件，查找嵌入式注入向量
+
+> [!NOTE]
+> 因为 GSD 会生成会再次作为 LLM system prompt 使用的 markdown 文件，所以任何流入 planning artifacts 的用户可控文本都可能成为间接 prompt injection 向量。以上保护就是为此做的多层拦截。
 
 ### 保护敏感文件
 
@@ -741,8 +827,9 @@ GSD 的代码库映射和分析命令会读取文件来理解你的项目。**�
 
 **安装后找不到命令？**
 - 重启你的运行时，让命令或 skills 重新加载
-- 检查文件是否存在于 `~/.claude/commands/gsd/`（全局）或 `./.claude/commands/gsd/`（本地）
-- 对 Codex，检查 skills 是否存在于 `~/.codex/skills/gsd-*/SKILL.md`（全局）或 `./.codex/skills/gsd-*/SKILL.md`（本地）
+- 检查托管安装的文件是否存在于 `~/.claude/skills/gsd-*/SKILL.md` 或 `~/.codex/skills/gsd-*/SKILL.md`
+- 本地安装则检查 `.claude/skills/gsd-*/SKILL.md` 或 `./.codex/skills/gsd-*/SKILL.md`
+- legacy Claude Code 安装仍可能使用 `~/.claude/commands/gsd/`
 
 **命令行为不符合预期？**
 - 运行 `/gsd-help` 确认安装成功
@@ -774,9 +861,11 @@ npx get-shit-done-cc --kilo --global --uninstall
 npx get-shit-done-cc --codex --global --uninstall
 npx get-shit-done-cc --copilot --global --uninstall
 npx get-shit-done-cc --cursor --global --uninstall
+npx get-shit-done-cc --windsurf --global --uninstall
 npx get-shit-done-cc --antigravity --global --uninstall
 npx get-shit-done-cc --augment --global --uninstall
 npx get-shit-done-cc --trae --global --uninstall
+npx get-shit-done-cc --qwen --global --uninstall
 npx get-shit-done-cc --cline --global --uninstall
 
 # 本地安装（当前项目）
@@ -787,9 +876,11 @@ npx get-shit-done-cc --kilo --local --uninstall
 npx get-shit-done-cc --codex --local --uninstall
 npx get-shit-done-cc --copilot --local --uninstall
 npx get-shit-done-cc --cursor --local --uninstall
+npx get-shit-done-cc --windsurf --local --uninstall
 npx get-shit-done-cc --antigravity --local --uninstall
 npx get-shit-done-cc --augment --local --uninstall
 npx get-shit-done-cc --trae --local --uninstall
+npx get-shit-done-cc --qwen --local --uninstall
 npx get-shit-done-cc --cline --local --uninstall
 ```
 

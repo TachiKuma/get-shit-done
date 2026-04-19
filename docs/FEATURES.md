@@ -1865,7 +1865,10 @@ Test suite that scans all agent, workflow, and command files for embedded inject
 
 **Localization governance:**
 - `response_language` controls generated content and must preserve the `canonical locale` and `fallback` contract documented in `docs/CONFIGURATION.md`.
-- The first-batch hard gate is `en + zh-CN`; non-first-batch locale docs remain `summary-only locale` surfaces unless explicitly upgraded.
+- Installer CLI output is a separate fixed-string chain: `response_language` selects the canonical locale, while `installer` localizes install/uninstall progress lines, help text, prompts, warnings, and completion messages; flags, runtime names, paths, and other technical identifiers remain `English canonical`.
+- Codex install output is a separate display-layer chain: `response_language` selects the canonical locale, while `codex-skills` localizes only installed `SKILL.md` `description` and `metadata.short-description`; bodies and adapters remain `English canonical`.
+- The v1.1 Codex install-display contract covers exactly six skills: `gsd-new-milestone`, `gsd-progress`, `gsd-discuss-phase`, `gsd-plan-phase`, `gsd-execute-phase`, and `gsd-next`.
+- Wider `gsd-*` Codex display coverage remains deferred roadmap work; the first-batch hard gate stays `en + zh-CN` until a new roadmap decision upgrades the scope.
 - `node scripts/verify-localization-governance.cjs` is the public governance command for checking whether `response_language`-related docs, workflows, mirrors, and catalogs still match the English canonical contract.
 
 ---

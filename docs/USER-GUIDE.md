@@ -932,6 +932,8 @@ To assign different models to different agents on a non-Claude runtime, add `mod
 
 The installer auto-configures `resolve_model_ids: "omit"` for Gemini CLI, OpenCode, Kilo, and Codex. If you're manually setting up a non-Claude runtime, add it to `.planning/config.json` yourself.
 
+For installer-facing CLI output, the configured canonical locale also drives the `installer` catalog: install/uninstall progress lines, help text, prompts, warnings, and completion messages can localize, while runtime names, command flags, paths, and file names remain English canonical. For Codex specifically, the installed `SKILL.md` display layer follows the same canonical locale through `codex-skills`: `description` and `metadata.short-description` can localize, while the skill body, adapter, command names, flags, and paths remain English canonical. See the [Configuration Reference](CONFIGURATION.md#response_language-contract) for the formal contract and fallback details.
+
 See the [Configuration Reference](CONFIGURATION.md#non-claude-runtimes-codex-opencode-gemini-cli-kilo) for the full explanation.
 
 ### Installing for Cline

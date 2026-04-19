@@ -24,4 +24,5 @@
 
 - 이 페이지는 summary only 입니다.
 - 전체 syntax, flags, options, examples 는 항상 [English canonical](../COMMANDS.md)을 사용하세요.
+- `/gsd-review --cursor` 를 포함한 고급 review flags 는 [English canonical](../COMMANDS.md)을 기준으로 합니다.
 - command IDs, paths, code, tool names 는 영어를 유지합니다.

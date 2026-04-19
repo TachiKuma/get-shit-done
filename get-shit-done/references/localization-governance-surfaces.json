@@ -120,6 +120,59 @@
       ]
     },
     {
+      "group": "codex-skill-display-catalogs",
+      "disposition": "blocker",
+      "owner_hint": "codex-runtime-maintainers",
+      "reason": "Phase 07, Phase 08, and Phase 10 lock the first-batch six `codex-skills` entries as the official v1.1 Codex display-layer contract; wider `gsd-*` coverage remains deferred roadmap work.",
+      "scope_skills": [
+        "gsd-new-milestone",
+        "gsd-progress",
+        "gsd-discuss-phase",
+        "gsd-plan-phase",
+        "gsd-execute-phase",
+        "gsd-next"
+      ],
+      "surfaces": [
+        {
+          "id": "codex-skill-display-catalog-en",
+          "path": "get-shit-done/locales/en/codex-skills.json",
+          "canonical_source": "English Codex display catalog",
+          "expected_check": "Catalog defines the canonical key set for the official first-batch six-skill Codex display metadata contract",
+          "verification_entry": "tests/codex-skill-display-catalog.test.cjs"
+        },
+        {
+          "id": "codex-skill-display-catalog-zh-CN",
+          "path": "get-shit-done/locales/zh-CN/codex-skills.json",
+          "canonical_source": "First-batch zh-CN Codex display catalog",
+          "expected_check": "Catalog key set matches English for the same six-skill boundary and localized values stay inside the display-layer field boundary",
+          "verification_entry": "tests/codex-skill-display-localization.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "codex-install-output-first-batch",
+      "disposition": "blocker",
+      "owner_hint": "codex-runtime-maintainers",
+      "reason": "Real Codex install output for the first-batch six skills is the hard gate that prevents installer regressions back to English-only summaries while wider `gsd-*` Codex coverage remains deferred roadmap work.",
+      "scope_skills": [
+        "gsd-new-milestone",
+        "gsd-progress",
+        "gsd-discuss-phase",
+        "gsd-plan-phase",
+        "gsd-execute-phase",
+        "gsd-next"
+      ],
+      "surfaces": [
+        {
+          "id": "codex-install-output-first-batch",
+          "path_pattern": ".codex/skills/gsd-*/SKILL.md",
+          "canonical_source": "commands/gsd/*.md plus get-shit-done/locales/{en,zh-CN}/codex-skills.json",
+          "expected_check": "Real install output preserves English canonical bodies while resolving the official first-batch six-skill en plus zh-CN display metadata correctly",
+          "verification_entry": "tests/codex-install-output-localization.test.cjs"
+        }
+      ]
+    },
+    {
       "group": "command-summary-first-batch",
       "disposition": "blocker",
       "owner_hint": "docs-maintainers",

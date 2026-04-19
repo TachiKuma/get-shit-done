@@ -81,6 +81,22 @@ function loadLocaleCatalog(namespace, locale) {
   return merged;
 }
 
+function resolveLocaleCatalogValue(namespace, locale, key) {
+  const fallbackChain = getLocaleFallbackChain(locale);
+
+  for (const currentLocale of fallbackChain) {
+    const catalog = readLocaleCatalog(currentLocale, namespace);
+    if (Object.prototype.hasOwnProperty.call(catalog, key)) {
+      return {
+        value: catalog[key],
+        sourceLocale: currentLocale,
+      };
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
   DEFAULT_LOCALE,
   CANONICAL_LOCALES,
@@ -88,5 +104,6 @@ module.exports = {
   normalizeLocale,
   getLocaleFallbackChain,
   getLocaleCatalogPath,
+  resolveLocaleCatalogValue,
   loadLocaleCatalog,
 };

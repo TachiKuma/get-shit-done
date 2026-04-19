@@ -25,6 +25,10 @@ function writeConfig(tmpDir, obj) {
   fs.writeFileSync(configPath, JSON.stringify(obj, null, 2), 'utf-8');
 }
 
+function toRepoPath(filePath) {
+  return String(filePath).replace(/\\/g, '/');
+}
+
 // ─── config-ensure-section ───────────────────────────────────────────────────
 
 describe('config-ensure-section command', () => {
@@ -953,14 +957,16 @@ describe('config-path command (#2282)', () => {
   test('returns root config path when no workstream is active', () => {
     const result = runGsdTools('config-path', tmpDir);
     assert.ok(result.success, `config-path failed: ${result.error}`);
-    assert.ok(result.output.trim().endsWith('.planning/config.json'), `expected root config path, got: ${result.output}`);
-    assert.ok(!result.output.includes('workstreams'), 'should not include workstreams in path');
+    const configPath = toRepoPath(result.output.trim());
+    assert.ok(configPath.endsWith('.planning/config.json'), `expected root config path, got: ${result.output}`);
+    assert.ok(!configPath.includes('workstreams'), 'should not include workstreams in path');
   });
 
   test('returns workstream config path when GSD_WORKSTREAM is set', () => {
     const result = runGsdTools('config-path', tmpDir, { GSD_WORKSTREAM: 'my-stream' });
     assert.ok(result.success, `config-path failed: ${result.error}`);
-    assert.ok(result.output.trim().includes('workstreams/my-stream/config.json'), `expected workstream config path, got: ${result.output}`);
+    const configPath = toRepoPath(result.output.trim());
+    assert.ok(configPath.includes('workstreams/my-stream/config.json'), `expected workstream config path, got: ${result.output}`);
   });
 
   test('config-path and config-get agree on the active path', () => {

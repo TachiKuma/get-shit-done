@@ -464,6 +464,14 @@ node gsd-tools.cjs state sync              # 从磁盘重建 STATE.md
 
 在 `/gsd-new-project` 期间或通过 `/gsd-settings` 设置 `commit_docs: false`。将 `.planning/` 添加到 `.gitignore`。规划工件保留在本地，从不接触 git。
 
+### 安装器输出语言不符合预期
+
+安装器读取的是**当前工作目录**下 `.planning/config.json` 里的 `response_language`。这会影响 `npx get-shit-done-cc --help`、安装/卸载进度、交互提示、警告和完成消息。
+
+- 如果当前目录没有 `.planning/config.json`，安装器默认输出英文
+- 如果你想看到中文安装器输出，请在当前项目目录运行安装器，并确保 `.planning/config.json` 中有 `"response_language": "zh-CN"`
+- 命令标志、路径、文件名以及 `Codex`、`Qwen Code`、`CodeBuddy` 这类 runtime 名称仍保持英文，这是刻意保留的 `English canonical` 边界
+
 ### GSD 更新覆盖了我的本地更改
 
 从 v1.17 开始，安装程序将本地修改的文件备份到 `gsd-local-patches/`。运行 `/gsd-reapply-patches` 将你的更改合并回来。

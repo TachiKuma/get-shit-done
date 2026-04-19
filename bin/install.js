@@ -5,6 +5,11 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
+const { loadConfig } = require('../get-shit-done/bin/lib/core.cjs');
+const {
+  DEFAULT_LOCALE,
+  resolveLocaleCatalogValue,
+} = require('../get-shit-done/bin/lib/locale.cjs');
 
 // Colors
 const cyan = '\x1b[36m';
@@ -20,6 +25,8 @@ const GSD_CODEX_HOOKS_OWNERSHIP_PREFIX = '# GSD codex_hooks ownership: ';
 // Copilot instructions marker constants
 const GSD_COPILOT_INSTRUCTIONS_MARKER = '<!-- GSD Configuration \u2014 managed by get-shit-done installer -->';
 const GSD_COPILOT_INSTRUCTIONS_CLOSE_MARKER = '<!-- /GSD Configuration -->';
+const CODEX_SKILLS_LOCALE_NAMESPACE = 'codex-skills';
+const INSTALLER_LOCALE_NAMESPACE = 'installer';
 
 const CODEX_AGENT_SANDBOX = {
   'gsd-executor': 'workspace-write',
@@ -52,6 +59,130 @@ const claudeToCopilotTools = {
   SlashCommand: 'skill',
 };
 
+function getRuntimeDisplayName(runtime = 'claude') {
+  if (runtime === 'opencode') return 'OpenCode';
+  if (runtime === 'gemini') return 'Gemini';
+  if (runtime === 'kilo') return 'Kilo';
+  if (runtime === 'codex') return 'Codex';
+  if (runtime === 'copilot') return 'Copilot';
+  if (runtime === 'antigravity') return 'Antigravity';
+  if (runtime === 'cursor') return 'Cursor';
+  if (runtime === 'windsurf') return 'Windsurf';
+  if (runtime === 'augment') return 'Augment';
+  if (runtime === 'trae') return 'Trae';
+  if (runtime === 'qwen') return 'Qwen Code';
+  if (runtime === 'codebuddy') return 'CodeBuddy';
+  if (runtime === 'cline') return 'Cline';
+  return 'Claude Code';
+}
+
+function formatInstallerTemplate(template, params = {}) {
+  return template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(params, key)) {
+      return match;
+    }
+    return String(params[key]);
+  });
+}
+
+function installerText(key, fallback, params = {}, locale = resolveInstallerLocale(), resolver = resolveLocaleCatalogValue) {
+  const catalogKey = `${INSTALLER_LOCALE_NAMESPACE}.${key}`;
+  const resolved = resolver(INSTALLER_LOCALE_NAMESPACE, locale, catalogKey);
+  const template = resolved && typeof resolved.value === 'string' ? resolved.value : fallback;
+  return formatInstallerTemplate(template, params);
+}
+
+function formatHelpLine(flagLabel, description) {
+  const minPadding = 2;
+  const width = 32;
+  const padding = ' '.repeat(Math.max(minPadding, width - flagLabel.length));
+  return `    ${cyan}${flagLabel}${reset}${padding}${description}`;
+}
+
+function renderInstallerHelp(locale = resolveInstallerLocale()) {
+  const runtimeFlags = ['claude', 'opencode', 'gemini', 'kilo', 'codex', 'copilot', 'antigravity', 'cursor', 'windsurf', 'augment', 'trae', 'qwen', 'cline', 'codebuddy'];
+  const options = [
+    ['-g, --global', installerText('help_install_globally', 'Install globally (to config directory)', {}, locale)],
+    ['-l, --local', installerText('help_install_locally', 'Install locally (to current directory)', {}, locale)],
+    ...runtimeFlags.map((runtime) => [`--${runtime}`, installerText('help_install_for_runtime_only', 'Install for {{runtime}} only', { runtime: getRuntimeDisplayName(runtime) }, locale)]),
+    ['--all', installerText('help_install_all_runtimes', 'Install for all runtimes', {}, locale)],
+    ['-u, --uninstall', installerText('help_uninstall', 'Uninstall GSD (remove all GSD files)', {}, locale)],
+    ['-c, --config-dir <path>', installerText('help_specify_custom_config_dir', 'Specify custom config directory', {}, locale)],
+    ['-h, --help', installerText('help_show_help_message', 'Show this help message', {}, locale)],
+    ['--force-statusline', installerText('help_replace_statusline', 'Replace existing statusline config', {}, locale)],
+    ['--portable-hooks', installerText('help_emit_home_relative_hooks', 'Emit $HOME-relative hook paths in settings.json', {}, locale)],
+  ];
+
+  const globalExamples = ['claude', 'gemini', 'kilo', 'codex', 'copilot', 'antigravity', 'cursor', 'windsurf', 'augment', 'trae', 'codebuddy'];
+  const localExamples = ['copilot', 'antigravity', 'cursor', 'windsurf', 'augment', 'trae', 'cline', 'codebuddy'];
+  const exampleBlocks = [
+    [
+      installerText('help_interactive_install', 'Interactive install (prompts for runtime and location)', {}, locale),
+      'npx get-shit-done-cc'
+    ],
+    ...globalExamples.map((runtime) => [
+      installerText('help_install_for_runtime_globally', 'Install for {{runtime}} globally', { runtime: getRuntimeDisplayName(runtime) }, locale),
+      `npx get-shit-done-cc --${runtime} --global`
+    ]),
+    ...localExamples.map((runtime) => [
+      installerText('help_install_for_runtime_locally', 'Install for {{runtime}} locally', { runtime: getRuntimeDisplayName(runtime) }, locale),
+      `npx get-shit-done-cc --${runtime} --local`
+    ]),
+    [
+      installerText('help_install_all_runtimes_globally', 'Install for all runtimes globally', {}, locale),
+      'npx get-shit-done-cc --all --global'
+    ],
+    [
+      installerText('help_install_to_custom_config_directory', 'Install to custom config directory', {}, locale),
+      'npx get-shit-done-cc --kilo --global --config-dir ~/.kilo-work'
+    ],
+    [
+      installerText('help_install_current_project_only', 'Install to current project only', {}, locale),
+      'npx get-shit-done-cc --claude --local'
+    ],
+    [
+      installerText('help_uninstall_from_runtime_globally', 'Uninstall GSD from {{runtime}} globally', { runtime: 'Cursor' }, locale),
+      'npx get-shit-done-cc --cursor --global --uninstall'
+    ],
+  ];
+
+  const lines = [
+    `  ${yellow}${installerText('help_usage', 'Usage:', {}, locale)}${reset} npx get-shit-done-cc [options]`,
+    '',
+    `  ${yellow}${installerText('help_options', 'Options:', {}, locale)}${reset}`,
+    ...options.map(([flag, desc]) => formatHelpLine(flag, desc)),
+    `                              ${installerText('help_emit_home_relative_hooks_continued', '(for WSL/Docker bind-mount setups; also GSD_PORTABLE_HOOKS=1)', {}, locale)}`,
+    '',
+    `  ${yellow}${installerText('help_examples', 'Examples:', {}, locale)}${reset}`,
+  ];
+
+  for (const [comment, command] of exampleBlocks) {
+    lines.push(`    ${dim}# ${comment}${reset}`);
+    lines.push(`    ${command}`);
+    lines.push('');
+  }
+
+  lines.push(`  ${yellow}${installerText('help_notes', 'Notes:', {}, locale)}${reset}`);
+  lines.push(`    ${installerText('help_config_dir_note', 'The --config-dir option is useful when you have multiple configurations.', {}, locale)}`);
+  lines.push(`    ${installerText('help_config_dir_priority', 'It takes priority over CLAUDE_CONFIG_DIR / OPENCODE_CONFIG_DIR / GEMINI_CONFIG_DIR / KILO_CONFIG_DIR / CODEX_HOME / COPILOT_CONFIG_DIR / ANTIGRAVITY_CONFIG_DIR / CURSOR_CONFIG_DIR / WINDSURF_CONFIG_DIR / AUGMENT_CONFIG_DIR / TRAE_CONFIG_DIR / QWEN_CONFIG_DIR / CLINE_CONFIG_DIR / CODEBUDDY_CONFIG_DIR environment variables.', {}, locale)}`);
+
+  return lines.join('\n') + '\n';
+}
+
+function renderWslWindowsNodeError(locale = resolveInstallerLocale()) {
+  return `
+${yellow}⚠ ${installerText('wsl_windows_node_title', 'Detected WSL with Windows-native Node.js.', {}, locale)}${reset}
+
+${installerText('wsl_windows_node_body', 'This causes path resolution issues that prevent correct installation.', {}, locale)}
+${installerText('wsl_windows_node_install_hint', 'Please install a Linux-native Node.js inside WSL:', {}, locale)}
+
+  curl -fsSL https://fnm.vercel.app/install | bash
+  fnm install --lts
+
+${installerText('wsl_windows_node_rerun', 'Then re-run: {{command}}', { command: 'npx get-shit-done-cc@latest' }, locale)}
+`;
+}
+
 // Get version from package.json
 const pkg = require('../package.json');
 
@@ -77,6 +208,8 @@ const hasBoth = args.includes('--both'); // Legacy flag, keeps working
 const hasAll = args.includes('--all');
 const hasUninstall = args.includes('--uninstall') || args.includes('-u');
 const hasPortableHooks = args.includes('--portable-hooks') || process.env.GSD_PORTABLE_HOOKS === '1';
+const isCliEntry = require.main === module;
+const suppressTopLevelCliOutput = Boolean(process.env.GSD_TEST_MODE) && !isCliEntry;
 
 // Runtime selection - can be set by flags or interactive prompt
 let selectedRuntimes = [];
@@ -120,17 +253,7 @@ if (process.platform === 'win32') {
   }
 
   if (isWSL) {
-    console.error(`
-${yellow}⚠ Detected WSL with Windows-native Node.js.${reset}
-
-This causes path resolution issues that prevent correct installation.
-Please install a Linux-native Node.js inside WSL:
-
-  curl -fsSL https://fnm.vercel.app/install | bash
-  fnm install --lts
-
-Then re-run: npx get-shit-done-cc@latest
-`);
+    console.error(renderWslWindowsNodeError(resolveInstallerLocale()));
     process.exit(1);
   }
 }
@@ -403,12 +526,13 @@ const banner = '\n' +
 
 // Parse --config-dir argument
 function parseConfigDirArg() {
+  const installLocale = resolveInstallerLocale();
   const configDirIndex = args.findIndex(arg => arg === '--config-dir' || arg === '-c');
   if (configDirIndex !== -1) {
     const nextArg = args[configDirIndex + 1];
     // Error if --config-dir is provided without a value or next arg is another flag
     if (!nextArg || nextArg.startsWith('-')) {
-      console.error(`  ${yellow}--config-dir requires a path argument${reset}`);
+      console.error(`  ${yellow}${installerText('config_dir_requires_path', '--config-dir requires a path argument', {}, installLocale)}${reset}`);
       process.exit(1);
     }
     return nextArg;
@@ -418,7 +542,7 @@ function parseConfigDirArg() {
   if (configDirArg) {
     const value = configDirArg.split('=')[1];
     if (!value) {
-      console.error(`  ${yellow}--config-dir requires a non-empty path${reset}`);
+      console.error(`  ${yellow}${installerText('config_dir_requires_non_empty_path', '--config-dir requires a non-empty path', {}, installLocale)}${reset}`);
       process.exit(1);
     }
     return value;
@@ -429,15 +553,17 @@ const explicitConfigDir = parseConfigDirArg();
 const hasHelp = args.includes('--help') || args.includes('-h');
 const forceStatusline = args.includes('--force-statusline');
 
-console.log(banner);
+if (!suppressTopLevelCliOutput) {
+  console.log(banner);
+}
 
-if (hasUninstall) {
-  console.log('  Mode: Uninstall\n');
+if (hasUninstall && !suppressTopLevelCliOutput) {
+  console.log(`  ${installerText('mode_uninstall', 'Mode: Uninstall')}\n`);
 }
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx get-shit-done-cc [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--kilo${reset}                    Install for Kilo only\n    ${cyan}--codex${reset}                   Install for Codex only\n    ${cyan}--copilot${reset}                 Install for Copilot only\n    ${cyan}--antigravity${reset}             Install for Antigravity only\n    ${cyan}--cursor${reset}                  Install for Cursor only\n    ${cyan}--windsurf${reset}                Install for Windsurf only\n    ${cyan}--augment${reset}                 Install for Augment only\n    ${cyan}--trae${reset}                    Install for Trae only\n    ${cyan}--qwen${reset}                    Install for Qwen Code only\n    ${cyan}--cline${reset}                   Install for Cline only\n    ${cyan}--codebuddy${reset}              Install for CodeBuddy only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall GSD (remove all GSD files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n    ${cyan}--portable-hooks${reset}          Emit \$HOME-relative hook paths in settings.json\n                              (for WSL/Docker bind-mount setups; also GSD_PORTABLE_HOOKS=1)\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx get-shit-done-cc\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx get-shit-done-cc --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx get-shit-done-cc --gemini --global\n\n    ${dim}# Install for Kilo globally${reset}\n    npx get-shit-done-cc --kilo --global\n\n    ${dim}# Install for Codex globally${reset}\n    npx get-shit-done-cc --codex --global\n\n    ${dim}# Install for Copilot globally${reset}\n    npx get-shit-done-cc --copilot --global\n\n    ${dim}# Install for Copilot locally${reset}\n    npx get-shit-done-cc --copilot --local\n\n    ${dim}# Install for Antigravity globally${reset}\n    npx get-shit-done-cc --antigravity --global\n\n    ${dim}# Install for Antigravity locally${reset}\n    npx get-shit-done-cc --antigravity --local\n\n    ${dim}# Install for Cursor globally${reset}\n    npx get-shit-done-cc --cursor --global\n\n    ${dim}# Install for Cursor locally${reset}\n    npx get-shit-done-cc --cursor --local\n\n    ${dim}# Install for Windsurf globally${reset}\n    npx get-shit-done-cc --windsurf --global\n\n    ${dim}# Install for Windsurf locally${reset}\n    npx get-shit-done-cc --windsurf --local\n\n    ${dim}# Install for Augment globally${reset}\n    npx get-shit-done-cc --augment --global\n\n    ${dim}# Install for Augment locally${reset}\n    npx get-shit-done-cc --augment --local\n\n    ${dim}# Install for Trae globally${reset}\n    npx get-shit-done-cc --trae --global\n\n    ${dim}# Install for Trae locally${reset}\n    npx get-shit-done-cc --trae --local\n\n    ${dim}# Install for Cline locally${reset}\n    npx get-shit-done-cc --cline --local\n\n    ${dim}# Install for CodeBuddy globally${reset}\n    npx get-shit-done-cc --codebuddy --global\n\n    ${dim}# Install for CodeBuddy locally${reset}\n    npx get-shit-done-cc --codebuddy --local\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx get-shit-done-cc --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx get-shit-done-cc --kilo --global --config-dir ~/.kilo-work\n\n    ${dim}# Install to current project only${reset}\n    npx get-shit-done-cc --claude --local\n\n    ${dim}# Uninstall GSD from Cursor globally${reset}\n    npx get-shit-done-cc --cursor --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / OPENCODE_CONFIG_DIR / GEMINI_CONFIG_DIR / KILO_CONFIG_DIR / CODEX_HOME / COPILOT_CONFIG_DIR / ANTIGRAVITY_CONFIG_DIR / CURSOR_CONFIG_DIR / WINDSURF_CONFIG_DIR / AUGMENT_CONFIG_DIR / TRAE_CONFIG_DIR / QWEN_CONFIG_DIR / CLINE_CONFIG_DIR / CODEBUDDY_CONFIG_DIR environment variables.\n`);
+  console.log(renderInstallerHelp(resolveInstallerLocale()));
   process.exit(0);
 }
 
@@ -575,7 +701,11 @@ function readSettings(settingsPath) {
       }
     } catch (e) {
       // If even JSONC stripping fails, warn instead of silently returning {}
-      console.warn('  ' + yellow + '⚠' + reset + '  Warning: Could not parse ' + settingsPath + ' — file may be malformed. Existing settings preserved.');
+      console.warn('  ' + yellow + '⚠' + reset + '  ' + installerText(
+        'warning_could_not_parse_settings',
+        'Warning: Could not parse {{path}} — file may be malformed. Existing settings preserved.',
+        { path: settingsPath }
+      ));
       return null;
     }
   }
@@ -1721,18 +1851,86 @@ Result parsing:
 </codex_skill_adapter>`;
 }
 
-function convertClaudeCommandToCodexSkill(content, skillName) {
+function resolveInstallerLocale(cwd = process.cwd()) {
+  try {
+    return loadConfig(cwd).response_language || DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
+function getCodexSkillCatalogValue(skillName, field, locale, resolver = resolveLocaleCatalogValue) {
+  const key = `${CODEX_SKILLS_LOCALE_NAMESPACE}.${skillName}.${field}`;
+  const resolved = resolver(CODEX_SKILLS_LOCALE_NAMESPACE, locale, key);
+  if (!resolved || typeof resolved.value !== 'string') {
+    return null;
+  }
+
+  const trimmed = resolved.value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return {
+    value: trimmed,
+    sourceLocale: resolved.sourceLocale,
+  };
+}
+
+// Keep description/short-description on the same source locale so generated frontmatter
+// never mixes locale-specific and English display strings in one skill.
+function resolveCodexSkillDisplayMetadata(skillName, fallbackDescription, locale, resolver = resolveLocaleCatalogValue) {
+  const localeDescription = getCodexSkillCatalogValue(skillName, 'description', locale, resolver);
+  const localeShortDescription = getCodexSkillCatalogValue(skillName, 'short-description', locale, resolver);
+  const defaultDescription = fallbackDescription || `Run GSD workflow ${skillName}.`;
+
+  if (
+    localeDescription &&
+    localeShortDescription &&
+    localeDescription.sourceLocale === locale &&
+    localeShortDescription.sourceLocale === locale
+  ) {
+    return {
+      description: localeDescription.value,
+      shortDescription: localeShortDescription.value,
+      localeSource: locale,
+    };
+  }
+
+  const englishDescription = getCodexSkillCatalogValue(skillName, 'description', DEFAULT_LOCALE, resolver);
+  const englishShortDescription = getCodexSkillCatalogValue(skillName, 'short-description', DEFAULT_LOCALE, resolver);
+
+  if (englishDescription && englishShortDescription) {
+    return {
+      description: englishDescription.value,
+      shortDescription: englishShortDescription.value,
+      localeSource: DEFAULT_LOCALE,
+    };
+  }
+
+  return {
+    description: defaultDescription,
+    shortDescription: defaultDescription,
+    localeSource: fallbackDescription ? 'frontmatter' : 'generic',
+  };
+}
+
+function convertClaudeCommandToCodexSkill(content, skillName, options = {}) {
   const converted = convertClaudeToCodexMarkdown(content);
   const { frontmatter, body } = extractFrontmatterAndBody(converted);
-  let description = `Run GSD workflow ${skillName}.`;
+  let fallbackDescription = `Run GSD workflow ${skillName}.`;
   if (frontmatter) {
     const maybeDescription = extractFrontmatterField(frontmatter, 'description');
     if (maybeDescription) {
-      description = maybeDescription;
+      fallbackDescription = maybeDescription;
     }
   }
-  description = toSingleLine(description);
-  const shortDescription = description.length > 180 ? `${description.slice(0, 177)}...` : description;
+  const locale = options.locale || resolveInstallerLocale();
+  const resolver = options.catalogResolver || resolveLocaleCatalogValue;
+  const display = resolveCodexSkillDisplayMetadata(skillName, fallbackDescription, locale, resolver);
+  const description = toSingleLine(display.description);
+  const shortDescriptionSource = toSingleLine(display.shortDescription);
+  const shortDescription = shortDescriptionSource.length > 180 ? `${shortDescriptionSource.slice(0, 177)}...` : shortDescriptionSource;
   const adapter = getCodexSkillAdapterHeader(skillName);
 
   return `---\nname: ${yamlQuote(skillName)}\ndescription: ${yamlQuote(description)}\nmetadata:\n  short-description: ${yamlQuote(shortDescription)}\n---\n\n${adapter}\n\n${body.trimStart()}`;
@@ -3631,7 +3829,7 @@ function listCodexSkillNames(skillsDir, prefix = 'gsd-') {
     .sort();
 }
 
-function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtime) {
+function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtime, locale = DEFAULT_LOCALE) {
   if (!fs.existsSync(srcDir)) {
     return;
   }
@@ -3675,7 +3873,7 @@ function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtim
       content = content.replace(localClaudeRegex, `./${getDirName(runtime)}/`);
       content = content.replace(codexDirRegex, pathPrefix);
       content = processAttribution(content, getCommitAttribution(runtime));
-      content = convertClaudeCommandToCodexSkill(content, skillName);
+      content = convertClaudeCommandToCodexSkill(content, skillName, { locale });
 
       fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content);
     }
@@ -4292,7 +4490,7 @@ function cleanupOrphanedFiles(configDir) {
     const fullPath = path.join(configDir, relPath);
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
-      console.log(`  ${green}✓${reset} Removed orphaned ${relPath}`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_orphaned_file', 'Removed orphaned {{path}}', { path: relPath })}`);
     }
   }
 }
@@ -4336,7 +4534,7 @@ function cleanupOrphanedHooks(settings) {
   }
 
   if (cleanedHooks) {
-    console.log(`  ${green}✓${reset} Removed orphaned hook registrations`);
+    console.log(`  ${green}✓${reset} ${installerText('removed_orphaned_hook_registrations', 'Removed orphaned hook registrations')}`);
   }
 
   // Fix #330: Update statusLine if it points to old GSD statusline.js path
@@ -4348,7 +4546,7 @@ function cleanupOrphanedHooks(settings) {
       /hooks([\/\\])statusline\.js/,
       'hooks$1gsd-statusline.js'
     );
-    console.log(`  ${green}✓${reset} Updated statusline path (hooks/statusline.js → hooks/gsd-statusline.js)`);
+    console.log(`  ${green}✓${reset} ${installerText('updated_statusline_path', 'Updated statusline path (hooks/statusline.js -> hooks/gsd-statusline.js)')}`);
   }
 
   return settings;
@@ -4427,7 +4625,7 @@ function validateHookFields(settings) {
   }
 
   if (fixedHooks) {
-    console.log(`  ${green}✓${reset} Fixed invalid hook entries (prevents settings.json schema rejection)`);
+    console.log(`  ${green}✓${reset} ${installerText('fixed_invalid_hook_entries', 'Fixed invalid hook entries (prevents settings.json schema rejection)')}`);
   }
 
   return settings;
@@ -4440,6 +4638,7 @@ function validateHookFields(settings) {
  * @param {string} runtime - Target runtime ('claude', 'opencode', 'gemini', 'codex', 'copilot')
  */
 function uninstall(isGlobal, runtime = 'claude') {
+  const uninstallLocale = resolveInstallerLocale();
   const isOpencode = runtime === 'opencode';
   const isKilo = runtime === 'kilo';
   const isGemini = runtime === 'gemini';
@@ -4463,26 +4662,17 @@ function uninstall(isGlobal, runtime = 'claude') {
     ? targetDir.replace(os.homedir(), '~')
     : targetDir.replace(process.cwd(), '.');
 
-  let runtimeLabel = 'Claude Code';
-  if (runtime === 'opencode') runtimeLabel = 'OpenCode';
-  if (runtime === 'gemini') runtimeLabel = 'Gemini';
-  if (runtime === 'kilo') runtimeLabel = 'Kilo';
-  if (runtime === 'codex') runtimeLabel = 'Codex';
-  if (runtime === 'copilot') runtimeLabel = 'Copilot';
-  if (runtime === 'antigravity') runtimeLabel = 'Antigravity';
-  if (runtime === 'cursor') runtimeLabel = 'Cursor';
-  if (runtime === 'windsurf') runtimeLabel = 'Windsurf';
-  if (runtime === 'augment') runtimeLabel = 'Augment';
-  if (runtime === 'trae') runtimeLabel = 'Trae';
-  if (runtime === 'qwen') runtimeLabel = 'Qwen Code';
-  if (runtime === 'codebuddy') runtimeLabel = 'CodeBuddy';
+  const runtimeLabel = getRuntimeDisplayName(runtime);
 
-  console.log(`  Uninstalling GSD from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  ${installerText('uninstalling_from', 'Uninstalling GSD from {{runtime}} at {{location}}', {
+    runtime: `${cyan}${runtimeLabel}${reset}`,
+    location: `${cyan}${locationLabel}${reset}`,
+  }, uninstallLocale)}\n`);
 
   // Check if target directory exists
   if (!fs.existsSync(targetDir)) {
-    console.log(`  ${yellow}⚠${reset} Directory does not exist: ${locationLabel}`);
-    console.log(`  Nothing to uninstall.\n`);
+    console.log(`  ${yellow}⚠${reset} ${installerText('directory_missing', 'Directory does not exist: {{path}}', { path: locationLabel }, uninstallLocale)}`);
+    console.log(`  ${installerText('nothing_to_uninstall', 'Nothing to uninstall.', {}, uninstallLocale)}\n`);
     return;
   }
 
@@ -4500,7 +4690,7 @@ function uninstall(isGlobal, runtime = 'claude') {
           removedCount++;
         }
       }
-      console.log(`  ${green}✓${reset} Removed GSD commands from command/`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_gsd_commands_from_dir', 'Removed GSD commands from {{dir}}', { dir: 'command/' }, uninstallLocale)}`);
     }
   } else if (isCodex || isCursor || isWindsurf || isTrae || isCodebuddy) {
     // Codex/Cursor/Windsurf/Trae/CodeBuddy: remove skills/gsd-*/SKILL.md skill directories
@@ -4516,7 +4706,10 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} ${runtimeLabel} skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', 'Removed {{count}} {{runtime}} skills', {
+          count: skillCount,
+          runtime: runtimeLabel,
+        }, uninstallLocale)}`);
       }
     }
 
@@ -4534,7 +4727,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         }
         if (tomlCount > 0) {
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed ${tomlCount} agent .toml configs`);
+          console.log(`  ${green}✓${reset} ${installerText('removed_agent_toml_configs', 'Removed {{count}} agent .toml configs', { count: tomlCount }, uninstallLocale)}`);
         }
       }
 
@@ -4547,11 +4740,11 @@ function uninstall(isGlobal, runtime = 'claude') {
           // File is empty after stripping — delete it
           fs.unlinkSync(configPath);
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed config.toml (was GSD-only)`);
+          console.log(`  ${green}✓${reset} ${installerText('removed_config_toml_gsd_only', 'Removed config.toml (was GSD-only)', {}, uninstallLocale)}`);
         } else if (cleaned !== content) {
           fs.writeFileSync(configPath, cleaned);
           removedCount++;
-          console.log(`  ${green}✓${reset} Cleaned GSD sections from config.toml`);
+          console.log(`  ${green}✓${reset} ${installerText('cleaned_gsd_sections_from_config_toml', 'Cleaned GSD sections from config.toml', {}, uninstallLocale)}`);
         }
       }
     }
@@ -4569,7 +4762,10 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} Copilot skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', 'Removed {{count}} {{runtime}} skills', {
+          count: skillCount,
+          runtime: 'Copilot',
+        }, uninstallLocale)}`);
       }
     }
 
@@ -4581,11 +4777,11 @@ function uninstall(isGlobal, runtime = 'claude') {
       if (cleaned === null) {
         fs.unlinkSync(instructionsPath);
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed copilot-instructions.md (was GSD-only)`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_copilot_instructions_gsd_only', 'Removed copilot-instructions.md (was GSD-only)', {}, uninstallLocale)}`);
       } else if (cleaned !== content) {
         fs.writeFileSync(instructionsPath, cleaned);
         removedCount++;
-        console.log(`  ${green}✓${reset} Cleaned GSD section from copilot-instructions.md`);
+        console.log(`  ${green}✓${reset} ${installerText('cleaned_gsd_section_from_copilot_instructions', 'Cleaned GSD section from copilot-instructions.md', {}, uninstallLocale)}`);
       }
     }
   } else if (isAntigravity) {
@@ -4602,7 +4798,10 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} Antigravity skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', 'Removed {{count}} {{runtime}} skills', {
+          count: skillCount,
+          runtime: 'Antigravity',
+        }, uninstallLocale)}`);
       }
     }
   } else if (isQwen) {
@@ -4618,7 +4817,10 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} Qwen Code skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', 'Removed {{count}} {{runtime}} skills', {
+          count: skillCount,
+          runtime: 'Qwen Code',
+        }, uninstallLocale)}`);
       }
     }
 
@@ -4627,7 +4829,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       const savedLegacyArtifacts = preserveUserArtifacts(legacyCommandsDir, ['dev-preferences.md']);
       fs.rmSync(legacyCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed legacy commands/gsd/`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_legacy_dir', 'Removed legacy {{dir}}', { dir: 'commands/gsd/' }, uninstallLocale)}`);
       restoreUserArtifacts(legacyCommandsDir, savedLegacyArtifacts);
     }
   } else if (isGemini) {
@@ -4642,16 +4844,19 @@ function uninstall(isGlobal, runtime = 'claude') {
 
       fs.rmSync(gsdCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed commands/gsd/`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_directory', 'Removed {{dir}}', { dir: 'commands/gsd/' }, uninstallLocale)}`);
 
       // Restore user-generated files
       if (preservedDevPrefs) {
         try {
           fs.mkdirSync(gsdCommandsDir, { recursive: true });
           fs.writeFileSync(devPrefsPath, preservedDevPrefs);
-          console.log(`  ${green}✓${reset} Preserved commands/gsd/dev-preferences.md`);
+          console.log(`  ${green}✓${reset} ${installerText('preserved_file', 'Preserved {{path}}', { path: 'commands/gsd/dev-preferences.md' }, uninstallLocale)}`);
         } catch (err) {
-          console.error(`  ${red}✗${reset} Failed to restore dev-preferences.md: ${err.message}`);
+          console.error(`  ${red}✗${reset} ${installerText('restore_file_failed', 'Failed to restore {{path}}: {{error}}', {
+            path: 'dev-preferences.md',
+            error: err.message,
+          }, uninstallLocale)}`);
         }
       }
     }
@@ -4669,7 +4874,10 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} Claude Code skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', 'Removed {{count}} {{runtime}} skills', {
+          count: skillCount,
+          runtime: 'Claude Code',
+        }, uninstallLocale)}`);
       }
     }
 
@@ -4682,15 +4890,18 @@ function uninstall(isGlobal, runtime = 'claude') {
 
       fs.rmSync(legacyCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed legacy commands/gsd/`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_legacy_dir', 'Removed legacy {{dir}}', { dir: 'commands/gsd/' }, uninstallLocale)}`);
 
       if (preservedDevPrefs) {
         try {
           fs.mkdirSync(legacyCommandsDir, { recursive: true });
           fs.writeFileSync(devPrefsPath, preservedDevPrefs);
-          console.log(`  ${green}✓${reset} Preserved commands/gsd/dev-preferences.md`);
+          console.log(`  ${green}✓${reset} ${installerText('preserved_file', 'Preserved {{path}}', { path: 'commands/gsd/dev-preferences.md' }, uninstallLocale)}`);
         } catch (err) {
-          console.error(`  ${red}✗${reset} Failed to restore dev-preferences.md: ${err.message}`);
+          console.error(`  ${red}✗${reset} ${installerText('restore_file_failed', 'Failed to restore {{path}}: {{error}}', {
+            path: 'dev-preferences.md',
+            error: err.message,
+          }, uninstallLocale)}`);
         }
       }
     }
@@ -4704,15 +4915,18 @@ function uninstall(isGlobal, runtime = 'claude') {
 
       fs.rmSync(gsdCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed commands/gsd/`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_directory', 'Removed {{dir}}', { dir: 'commands/gsd/' }, uninstallLocale)}`);
 
       if (preservedDevPrefs) {
         try {
           fs.mkdirSync(gsdCommandsDir, { recursive: true });
           fs.writeFileSync(devPrefsPath, preservedDevPrefs);
-          console.log(`  ${green}✓${reset} Preserved commands/gsd/dev-preferences.md`);
+          console.log(`  ${green}✓${reset} ${installerText('preserved_file', 'Preserved {{path}}', { path: 'commands/gsd/dev-preferences.md' }, uninstallLocale)}`);
         } catch (err) {
-          console.error(`  ${red}✗${reset} Failed to restore dev-preferences.md: ${err.message}`);
+          console.error(`  ${red}✗${reset} ${installerText('restore_file_failed', 'Failed to restore {{path}}: {{error}}', {
+            path: 'dev-preferences.md',
+            error: err.message,
+          }, uninstallLocale)}`);
         }
       }
     }
@@ -4727,16 +4941,19 @@ function uninstall(isGlobal, runtime = 'claude') {
 
     fs.rmSync(gsdDir, { recursive: true });
     removedCount++;
-    console.log(`  ${green}✓${reset} Removed get-shit-done/`);
+    console.log(`  ${green}✓${reset} ${installerText('removed_directory', 'Removed {{dir}}', { dir: 'get-shit-done/' }, uninstallLocale)}`);
 
     // Restore user-generated files
     if (preservedProfile) {
       try {
         fs.mkdirSync(gsdDir, { recursive: true });
         fs.writeFileSync(userProfilePath, preservedProfile);
-        console.log(`  ${green}✓${reset} Preserved get-shit-done/USER-PROFILE.md`);
+        console.log(`  ${green}✓${reset} ${installerText('preserved_file', 'Preserved {{path}}', { path: 'get-shit-done/USER-PROFILE.md' }, uninstallLocale)}`);
       } catch (err) {
-        console.error(`  ${red}✗${reset} Failed to restore USER-PROFILE.md: ${err.message}`);
+        console.error(`  ${red}✗${reset} ${installerText('restore_file_failed', 'Failed to restore {{path}}: {{error}}', {
+          path: 'USER-PROFILE.md',
+          error: err.message,
+        }, uninstallLocale)}`);
       }
     }
   }
@@ -4754,7 +4971,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (agentCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${agentCount} GSD agents`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_gsd_agents', 'Removed {{count}} GSD agents', { count: agentCount }, uninstallLocale)}`);
     }
   }
 
@@ -4772,7 +4989,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (hookCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${hookCount} GSD hooks`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_gsd_hooks', 'Removed {{count}} GSD hooks', { count: hookCount }, uninstallLocale)}`);
     }
   }
 
@@ -4785,7 +5002,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       if (content === '{"type":"commonjs"}') {
         fs.unlinkSync(pkgJsonPath);
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed GSD package.json`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_gsd_package_json', 'Removed GSD package.json', {}, uninstallLocale)}`);
       }
     } catch (e) {
       // Ignore read errors
@@ -4797,7 +5014,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (fs.existsSync(settingsPath)) {
     let settings = readSettings(settingsPath);
     if (settings === null) {
-      console.log(`  ${yellow}i${reset} Skipping settings.json cleanup — file could not be parsed`);
+      console.log(`  ${yellow}i${reset} ${installerText('skipping_settings_cleanup_parse', 'Skipping settings.json cleanup — file could not be parsed', {}, uninstallLocale)}`);
       settings = {}; // prevent downstream crashes, but don't write back
     }
     let settingsModified = false;
@@ -4807,7 +5024,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       settings.statusLine.command.includes('gsd-statusline')) {
       delete settings.statusLine;
       settingsModified = true;
-      console.log(`  ${green}✓${reset} Removed GSD statusline from settings`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_gsd_statusline_from_settings', 'Removed GSD statusline from settings', {}, uninstallLocale)}`);
     }
 
     // Remove GSD hooks from settings — per-hook granularity to preserve
@@ -4839,7 +5056,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
     if (settingsModified) {
-      console.log(`  ${green}✓${reset} Removed GSD hooks from settings`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_gsd_hooks_from_settings', 'Removed GSD hooks from settings', {}, uninstallLocale)}`);
     }
 
     // Clean up empty hooks object
@@ -4886,7 +5103,9 @@ function uninstall(isGlobal, runtime = 'claude') {
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed GSD permissions from ${path.basename(configPath)}`);
+          console.log(`  ${green}✓${reset} ${installerText('removed_gsd_permissions_from_file', 'Removed GSD permissions from {{file}}', {
+            file: path.basename(configPath),
+          }, uninstallLocale)}`);
         }
       } catch (e) {
         // Ignore JSON parse errors
@@ -4927,7 +5146,9 @@ function uninstall(isGlobal, runtime = 'claude') {
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed GSD permissions from ${path.basename(configPath)}`);
+          console.log(`  ${green}✓${reset} ${installerText('removed_gsd_permissions_from_file', 'Removed GSD permissions from {{file}}', {
+            file: path.basename(configPath),
+          }, uninstallLocale)}`);
         }
       } catch (e) {
         // Ignore JSON parse errors
@@ -4941,16 +5162,16 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (fs.existsSync(manifestPath)) {
     fs.rmSync(manifestPath, { force: true });
     removedCount++;
-    console.log(`  ${green}✓${reset} Removed ${MANIFEST_NAME}`);
+    console.log(`  ${green}✓${reset} ${installerText('removed_manifest', 'Removed {{file}}', { file: MANIFEST_NAME }, uninstallLocale)}`);
   }
 
   if (removedCount === 0) {
-    console.log(`  ${yellow}⚠${reset} No GSD files found to remove.`);
+    console.log(`  ${yellow}⚠${reset} ${installerText('no_gsd_files_found', 'No GSD files found to remove.', {}, uninstallLocale)}`);
   }
 
   console.log(`
-  ${green}Done!${reset} GSD has been uninstalled from ${runtimeLabel}.
-  Your other files and settings have been preserved.
+  ${green}${installerText('done_prefix', 'Done!', {}, uninstallLocale)}${reset} ${installerText('uninstall_done', 'GSD has been uninstalled from {{runtime}}.', { runtime: runtimeLabel }, uninstallLocale)}
+  ${installerText('uninstall_preserved', 'Your other files and settings have been preserved.', {}, uninstallLocale)}
 `);
 }
 
@@ -5022,6 +5243,7 @@ function parseJsonc(content) {
  * @param {string|null} configDir - Resolved config directory when already known
  */
 function configureOpencodePermissions(isGlobal = true, configDir = null) {
+  const installLocale = resolveInstallerLocale();
   // For local installs, use ./.opencode/
   // For global installs, use ~/.config/opencode/
   const opencodeConfigDir = configDir || (isGlobal
@@ -5041,9 +5263,9 @@ function configureOpencodePermissions(isGlobal = true, configDir = null) {
     } catch (e) {
       // Cannot parse - DO NOT overwrite user's config
       const configFile = path.basename(configPath);
-      console.log(`  ${yellow}⚠${reset} Could not parse ${configFile} - skipping permission config`);
-      console.log(`    ${dim}Reason: ${e.message}${reset}`);
-      console.log(`    ${dim}Your config was NOT modified. Fix the syntax manually if needed.${reset}`);
+      console.log(`  ${yellow}⚠${reset} ${installerText('could_not_parse_permission_config', 'Could not parse {{file}} - skipping permission config', { file: configFile }, installLocale)}`);
+      console.log(`    ${dim}${installerText('permission_config_reason', 'Reason: {{error}}', { error: e.message }, installLocale)}${reset}`);
+      console.log(`    ${dim}${installerText('permission_config_not_modified', 'Your config was NOT modified. Fix the syntax manually if needed.', {}, installLocale)}${reset}`);
       return;
     }
   }
@@ -5092,7 +5314,7 @@ function configureOpencodePermissions(isGlobal = true, configDir = null) {
 
   // Write config back
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`  ${green}✓${reset} Configured read permission for GSD docs`);
+  console.log(`  ${green}✓${reset} ${installerText('configured_gsd_docs_read_permission', 'Configured read permission for GSD docs', {}, installLocale)}`);
 }
 
 /**
@@ -5102,6 +5324,7 @@ function configureOpencodePermissions(isGlobal = true, configDir = null) {
  * @param {string|null} configDir - Resolved config directory when already known
  */
 function configureKiloPermissions(isGlobal = true, configDir = null) {
+  const installLocale = resolveInstallerLocale();
   // For local installs, use ./.kilo/
   // For global installs, use ~/.config/kilo/
   const kiloConfigDir = configDir || (isGlobal
@@ -5121,9 +5344,9 @@ function configureKiloPermissions(isGlobal = true, configDir = null) {
     } catch (e) {
       // Cannot parse - DO NOT overwrite user's config
       const configFile = path.basename(configPath);
-      console.log(`  ${yellow}⚠${reset} Could not parse ${configFile} - skipping permission config`);
-      console.log(`    ${dim}Reason: ${e.message}${reset}`);
-      console.log(`    ${dim}Your config was NOT modified. Fix the syntax manually if needed.${reset}`);
+      console.log(`  ${yellow}⚠${reset} ${installerText('could_not_parse_permission_config', 'Could not parse {{file}} - skipping permission config', { file: configFile }, installLocale)}`);
+      console.log(`    ${dim}${installerText('permission_config_reason', 'Reason: {{error}}', { error: e.message }, installLocale)}${reset}`);
+      console.log(`    ${dim}${installerText('permission_config_not_modified', 'Your config was NOT modified. Fix the syntax manually if needed.', {}, installLocale)}${reset}`);
       return;
     }
   }
@@ -5166,7 +5389,7 @@ function configureKiloPermissions(isGlobal = true, configDir = null) {
 
   // Write config back
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`  ${green}✓${reset} Configured read permission for GSD docs`);
+  console.log(`  ${green}✓${reset} ${installerText('configured_gsd_docs_read_permission', 'Configured read permission for GSD docs', {}, installLocale)}`);
 }
 
 /**
@@ -5174,17 +5397,20 @@ function configureKiloPermissions(isGlobal = true, configDir = null) {
  */
 function verifyInstalled(dirPath, description) {
   if (!fs.existsSync(dirPath)) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: directory not created`);
+    console.error(`  ${yellow}✗${reset} ${installerText('verify_failed_directory_not_created', 'Failed to install {{description}}: directory not created', { description })}`);
     return false;
   }
   try {
     const entries = fs.readdirSync(dirPath);
     if (entries.length === 0) {
-      console.error(`  ${yellow}✗${reset} Failed to install ${description}: directory is empty`);
+      console.error(`  ${yellow}✗${reset} ${installerText('verify_failed_directory_empty', 'Failed to install {{description}}: directory is empty', { description })}`);
       return false;
     }
   } catch (e) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: ${e.message}`);
+    console.error(`  ${yellow}✗${reset} ${installerText('verify_failed_with_error', 'Failed to install {{description}}: {{error}}', {
+      description,
+      error: e.message,
+    })}`);
     return false;
   }
   return true;
@@ -5195,7 +5421,7 @@ function verifyInstalled(dirPath, description) {
  */
 function verifyFileInstalled(filePath, description) {
   if (!fs.existsSync(filePath)) {
-    console.error(`  ${yellow}✗${reset} Failed to install ${description}: file not created`);
+    console.error(`  ${yellow}✗${reset} ${installerText('verify_failed_file_not_created', 'Failed to install {{description}}: file not created', { description })}`);
     return false;
   }
   return true;
@@ -5374,7 +5600,11 @@ function saveLocalPatches(configDir) {
       meta.pristine_hashes[relPath] = manifest.files[relPath];
     }
     fs.writeFileSync(path.join(patchesDir, 'backup-meta.json'), JSON.stringify(meta, null, 2));
-    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified GSD file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
+    console.log('  ' + yellow + 'i' + reset + '  ' + installerText(
+      'found_local_modifications',
+      'Found {{count}} locally modified GSD file(s) - backed up to {{dir}}/',
+      { count: modified.length, dir: PATCHES_DIR_NAME }
+    ));
     for (const f of modified) {
       console.log('     ' + dim + f + reset);
     }
@@ -5402,14 +5632,15 @@ function reportLocalPatches(configDir, runtime = 'claude') {
           ? 'gsd-reapply-patches (mention the skill name)'
           : '/gsd-reapply-patches';
     console.log('');
-    console.log('  ' + yellow + 'Local patches detected' + reset + ' (from v' + meta.from_version + '):');
+    console.log('');
+    console.log('  ' + yellow + installerText('local_patches_detected', 'Local patches detected (from v{{version}}):', { version: meta.from_version }) + reset);
     for (const f of meta.files) {
       console.log('     ' + cyan + f + reset);
     }
     console.log('');
-    console.log('  Your modifications are saved in ' + cyan + PATCHES_DIR_NAME + '/' + reset);
-    console.log('  Run ' + cyan + reapplyCommand + reset + ' to merge them into the new version.');
-    console.log('  Or manually compare and merge the files.');
+    console.log('  ' + installerText('local_patches_saved', 'Your modifications are saved in {{dir}}', { dir: cyan + PATCHES_DIR_NAME + '/' + reset }));
+    console.log('  ' + installerText('local_patches_reapply', 'Run {{command}} to merge them into the new version.', { command: cyan + reapplyCommand + reset }));
+    console.log('  ' + installerText('local_patches_manual', 'Or manually compare and merge the files.'));
     console.log('');
   }
   return meta.files || [];
@@ -5455,23 +5686,13 @@ function install(isGlobal, runtime = 'claude') {
   const pathPrefix = isGlobal && resolvedTarget.startsWith(homeDir)
     ? '$HOME' + resolvedTarget.slice(homeDir.length) + '/'
     : `${resolvedTarget}/`;
+  const installLocale = resolveInstallerLocale();
+  const runtimeLabel = getRuntimeDisplayName(runtime);
 
-  let runtimeLabel = 'Claude Code';
-  if (isOpencode) runtimeLabel = 'OpenCode';
-  if (isGemini) runtimeLabel = 'Gemini';
-  if (isKilo) runtimeLabel = 'Kilo';
-  if (isCodex) runtimeLabel = 'Codex';
-  if (isCopilot) runtimeLabel = 'Copilot';
-  if (isAntigravity) runtimeLabel = 'Antigravity';
-  if (isCursor) runtimeLabel = 'Cursor';
-  if (isWindsurf) runtimeLabel = 'Windsurf';
-  if (isAugment) runtimeLabel = 'Augment';
-  if (isTrae) runtimeLabel = 'Trae';
-  if (isQwen) runtimeLabel = 'Qwen Code';
-  if (isCodebuddy) runtimeLabel = 'CodeBuddy';
-  if (isCline) runtimeLabel = 'Cline';
-
-  console.log(`  Installing for ${cyan}${runtimeLabel}${reset} to ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  ${installerText('installing_for', 'Installing for {{runtime}} to {{location}}', {
+    runtime: `${cyan}${runtimeLabel}${reset}`,
+    location: `${cyan}${locationLabel}${reset}`,
+  }, installLocale)}\n`);
 
   // Track installation failures
   const failures = [];
@@ -5493,17 +5714,17 @@ function install(isGlobal, runtime = 'claude') {
     copyFlattenedCommands(gsdSrc, commandDir, 'gsd', pathPrefix, runtime);
     if (verifyInstalled(commandDir, 'command/gsd-*')) {
       const count = fs.readdirSync(commandDir).filter(f => f.startsWith('gsd-')).length;
-      console.log(`  ${green}✓${reset} Installed ${count} commands to command/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_commands_to_dir', 'Installed {{count}} commands to {{dir}}', { count, dir: 'command/' }, installLocale)}`);
     } else {
       failures.push('command/gsd-*');
     }
   } else if (isCodex) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsCodexSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
+    copyCommandsAsCodexSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime, installLocale);
     const installedSkillNames = listCodexSkillNames(skillsDir);
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
@@ -5515,7 +5736,7 @@ function install(isGlobal, runtime = 'claude') {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
         .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
       if (count > 0) {
-        console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count, dir: 'skills/' }, installLocale)}`);
       } else {
         failures.push('skills/gsd-*');
       }
@@ -5530,7 +5751,7 @@ function install(isGlobal, runtime = 'claude') {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
         .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
       if (count > 0) {
-        console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count, dir: 'skills/' }, installLocale)}`);
       } else {
         failures.push('skills/gsd-*');
       }
@@ -5543,7 +5764,7 @@ function install(isGlobal, runtime = 'claude') {
     copyCommandsAsCursorSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
     const installedSkillNames = listCodexSkillNames(skillsDir); // reuse — same dir structure
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
@@ -5553,7 +5774,7 @@ function install(isGlobal, runtime = 'claude') {
     copyCommandsAsWindsurfSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
     const installedSkillNames = listCodexSkillNames(skillsDir); // reuse — same dir structure
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
@@ -5563,7 +5784,7 @@ function install(isGlobal, runtime = 'claude') {
     copyCommandsAsAugmentSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
     const installedSkillNames = listCodexSkillNames(skillsDir);
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
@@ -5573,7 +5794,7 @@ function install(isGlobal, runtime = 'claude') {
     copyCommandsAsTraeSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
     const installedSkillNames = listCodexSkillNames(skillsDir);
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
@@ -5585,7 +5806,7 @@ function install(isGlobal, runtime = 'claude') {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
         .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
       if (count > 0) {
-        console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count, dir: 'skills/' }, installLocale)}`);
       } else {
         failures.push('skills/gsd-*');
       }
@@ -5597,7 +5818,7 @@ function install(isGlobal, runtime = 'claude') {
     if (fs.existsSync(legacyCommandsDir)) {
       const savedLegacyArtifacts = preserveUserArtifacts(legacyCommandsDir, ['dev-preferences.md']);
       fs.rmSync(legacyCommandsDir, { recursive: true });
-      console.log(`  ${green}✓${reset} Removed legacy commands/gsd/ directory`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_legacy_dir', 'Removed legacy {{dir}}', { dir: 'commands/gsd/' }, installLocale)}`);
       restoreUserArtifacts(legacyCommandsDir, savedLegacyArtifacts);
     }
   } else if (isCodebuddy) {
@@ -5606,14 +5827,14 @@ function install(isGlobal, runtime = 'claude') {
     copyCommandsAsCodebuddySkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
     const installedSkillNames = listCodexSkillNames(skillsDir);
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count: installedSkillNames.length, dir: 'skills/' }, installLocale)}`);
     } else {
       failures.push('skills/gsd-*');
     }
   } else if (isCline) {
     // Cline is rules-based — commands are embedded in .clinerules (generated below).
     // No skills/commands directory needed. Engine is installed via copyWithPathReplacement.
-    console.log(`  ${green}✓${reset} Cline: commands will be available via .clinerules`);
+    console.log(`  ${green}✓${reset} ${installerText('cline_commands_via_clinerules', 'Cline: commands will be available via .clinerules', {}, installLocale)}`);
   } else if (isGemini) {
     const commandsDir = path.join(targetDir, 'commands');
     fs.mkdirSync(commandsDir, { recursive: true });
@@ -5621,7 +5842,7 @@ function install(isGlobal, runtime = 'claude') {
     const gsdDest = path.join(commandsDir, 'gsd');
     copyWithPathReplacement(gsdSrc, gsdDest, pathPrefix, runtime, true, isGlobal);
     if (verifyInstalled(gsdDest, 'commands/gsd')) {
-      console.log(`  ${green}✓${reset} Installed commands/gsd`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_directory', 'Installed {{dir}}', { dir: 'commands/gsd' }, installLocale)}`);
     } else {
       failures.push('commands/gsd');
     }
@@ -5634,7 +5855,7 @@ function install(isGlobal, runtime = 'claude') {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
         .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
       if (count > 0) {
-        console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', 'Installed {{count}} skills to {{dir}}', { count, dir: 'skills/' }, installLocale)}`);
       } else {
         failures.push('skills/gsd-*');
       }
@@ -5648,7 +5869,7 @@ function install(isGlobal, runtime = 'claude') {
     if (fs.existsSync(legacyCommandsDir)) {
       const savedLegacyArtifacts = preserveUserArtifacts(legacyCommandsDir, ['dev-preferences.md']);
       fs.rmSync(legacyCommandsDir, { recursive: true });
-      console.log(`  ${green}✓${reset} Removed legacy commands/gsd/ directory`);
+      console.log(`  ${green}✓${reset} ${installerText('removed_legacy_dir', 'Removed legacy {{dir}}', { dir: 'commands/gsd/' }, installLocale)}`);
       restoreUserArtifacts(legacyCommandsDir, savedLegacyArtifacts);
     }
   } else {
@@ -5661,7 +5882,7 @@ function install(isGlobal, runtime = 'claude') {
     copyWithPathReplacement(gsdSrc, gsdDest, pathPrefix, runtime, true, isGlobal);
     if (verifyInstalled(gsdDest, 'commands/gsd')) {
       const count = fs.readdirSync(gsdDest).filter(f => f.endsWith('.md')).length;
-      console.log(`  ${green}✓${reset} Installed ${count} commands to commands/gsd/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_commands_to_dir', 'Installed {{count}} commands to {{dir}}', { count, dir: 'commands/gsd/' }, installLocale)}`);
     } else {
       failures.push('commands/gsd');
     }
@@ -5675,7 +5896,7 @@ function install(isGlobal, runtime = 'claude') {
         fs.rmSync(path.join(staleSkillsDir, e.name), { recursive: true });
       }
       if (staleGsd.length > 0) {
-        console.log(`  ${green}✓${reset} Removed ${staleGsd.length} stale GSD skill(s) from skills/`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_stale_skills_from_dir', 'Removed {{count}} stale GSD skill(s) from {{dir}}', { count: staleGsd.length, dir: 'skills/' }, installLocale)}`);
       }
     }
   }
@@ -5688,7 +5909,7 @@ function install(isGlobal, runtime = 'claude') {
   copyWithPathReplacement(skillSrc, skillDest, pathPrefix, runtime, false, isGlobal);
   restoreUserArtifacts(skillDest, savedGsdArtifacts);
   if (verifyInstalled(skillDest, 'get-shit-done')) {
-    console.log(`  ${green}✓${reset} Installed get-shit-done`);
+    console.log(`  ${green}✓${reset} ${installerText('installed_engine', 'Installed get-shit-done', {}, installLocale)}`);
   } else {
     failures.push('get-shit-done');
   }
@@ -5765,7 +5986,7 @@ function install(isGlobal, runtime = 'claude') {
       }
     }
     if (verifyInstalled(agentsDest, 'agents')) {
-      console.log(`  ${green}✓${reset} Installed agents`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_agents', 'Installed agents', {}, installLocale)}`);
     } else {
       failures.push('agents');
     }
@@ -5777,7 +5998,7 @@ function install(isGlobal, runtime = 'claude') {
   if (fs.existsSync(changelogSrc)) {
     fs.copyFileSync(changelogSrc, changelogDest);
     if (verifyFileInstalled(changelogDest, 'CHANGELOG.md')) {
-      console.log(`  ${green}✓${reset} Installed CHANGELOG.md`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_changelog', 'Installed CHANGELOG.md', {}, installLocale)}`);
     } else {
       failures.push('CHANGELOG.md');
     }
@@ -5787,7 +6008,7 @@ function install(isGlobal, runtime = 'claude') {
   const versionDest = path.join(targetDir, 'get-shit-done', 'VERSION');
   fs.writeFileSync(versionDest, pkg.version);
   if (verifyFileInstalled(versionDest, 'VERSION')) {
-    console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
+    console.log(`  ${green}✓${reset} ${installerText('wrote_version', 'Wrote VERSION ({{version}})', { version: pkg.version }, installLocale)}`);
   } else {
     failures.push('VERSION');
   }
@@ -5798,7 +6019,7 @@ function install(isGlobal, runtime = 'claude') {
     // Node.js walks up looking for package.json - this stops inheritance from project
     const pkgJsonDest = path.join(targetDir, 'package.json');
     fs.writeFileSync(pkgJsonDest, '{"type":"commonjs"}\n');
-    console.log(`  ${green}✓${reset} Wrote package.json (CommonJS mode)`);
+    console.log(`  ${green}✓${reset} ${installerText('wrote_package_json_commonjs', 'Wrote package.json (CommonJS mode)', {}, installLocale)}`);
 
     // Copy hooks from dist/ (bundled with dependencies)
     // Template paths for the target runtime (replaces '.claude' with correct config dir)
@@ -5841,12 +6062,12 @@ function install(isGlobal, runtime = 'claude') {
         }
       }
       if (verifyInstalled(hooksDest, 'hooks')) {
-        console.log(`  ${green}✓${reset} Installed hooks (bundled)`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_hooks_bundled', 'Installed hooks (bundled)', {}, installLocale)}`);
         // Warn if expected community .sh hooks are missing (non-fatal)
         const expectedShHooks = ['gsd-session-state.sh', 'gsd-validate-commit.sh', 'gsd-phase-boundary.sh'];
         for (const sh of expectedShHooks) {
           if (!fs.existsSync(path.join(hooksDest, sh))) {
-            console.warn(`  ${yellow}⚠${reset}  Missing expected hook: ${sh}`);
+            console.warn(`  ${yellow}⚠${reset}  ${installerText('missing_expected_hook', 'Missing expected hook: {{hook}}', { hook: sh }, installLocale)}`);
           }
         }
       } else {
@@ -5861,13 +6082,15 @@ function install(isGlobal, runtime = 'claude') {
   try { fs.unlinkSync(updateCacheFile); } catch (e) { /* cache may not exist yet */ }
 
   if (failures.length > 0) {
-    console.error(`\n  ${yellow}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
+    console.error(`\n  ${yellow}${installerText('installation_incomplete', 'Installation incomplete! Failed: {{failures}}', {
+      failures: failures.join(', '),
+    }, installLocale)}${reset}`);
     process.exit(1);
   }
 
   // Write file manifest for future modification detection
   writeManifest(targetDir, runtime);
-  console.log(`  ${green}✓${reset} Wrote file manifest (${MANIFEST_NAME})`);
+  console.log(`  ${green}✓${reset} ${installerText('wrote_file_manifest', 'Wrote file manifest ({{file}})', { file: MANIFEST_NAME }, installLocale)}`);
 
   // Report any backed-up local patches
   reportLocalPatches(targetDir, runtime);
@@ -5910,22 +6133,29 @@ function install(isGlobal, runtime = 'claude') {
     scanForLeakedPaths(targetDir);
     if (leakedPaths.length > 0) {
       const totalLeaks = leakedPaths.reduce((sum, l) => sum + l.count, 0);
-      console.warn(`\n  ${yellow}⚠${reset}  Found ${totalLeaks} unreplaced .claude path reference(s) in ${leakedPaths.length} file(s):`);
+      console.warn(`\n  ${yellow}⚠${reset}  ${installerText('found_unreplaced_claude_paths', 'Found {{count}} unreplaced .claude path reference(s) in {{files}} file(s):', {
+        count: totalLeaks,
+        files: leakedPaths.length,
+      }, installLocale)}`);
       for (const leak of leakedPaths.slice(0, 5)) {
         console.warn(`     ${dim}${leak.file}${reset} (${leak.count})`);
       }
       if (leakedPaths.length > 5) {
-        console.warn(`     ${dim}... and ${leakedPaths.length - 5} more file(s)${reset}`);
+        console.warn(`     ${dim}${installerText('additional_leaked_files', '... and {{count}} more file(s)', {
+          count: leakedPaths.length - 5,
+        }, installLocale)}${reset}`);
       }
-      console.warn(`  ${dim}These paths may not resolve correctly for ${runtimeLabel}.${reset}`);
+      console.warn(`  ${dim}${installerText('leaked_paths_may_not_resolve', 'These paths may not resolve correctly for {{runtime}}.', {
+        runtime: runtimeLabel,
+      }, installLocale)}${reset}`);
     }
   }
 
   if (isCodex) {
     // Generate Codex config.toml and per-agent .toml files
     const agentCount = installCodexConfig(targetDir, agentsSrc);
-    console.log(`  ${green}✓${reset} Generated config.toml with ${agentCount} agent roles`);
-    console.log(`  ${green}✓${reset} Generated ${agentCount} agent .toml config files`);
+    console.log(`  ${green}✓${reset} ${installerText('generated_codex_config_toml', 'Generated config.toml with {{count}} agent roles', { count: agentCount }, installLocale)}`);
+    console.log(`  ${green}✓${reset} ${installerText('generated_codex_agent_toml_files', 'Generated {{count}} agent .toml config files', { count: agentCount }, installLocale)}`);
 
     // Copy hook files that are referenced in config.toml (#2153)
     // The main hook-copy block is gated to non-Codex runtimes, but Codex registers
@@ -5957,7 +6187,7 @@ function install(isGlobal, runtime = 'claude') {
           }
         }
       }
-      console.log(`  ${green}✓${reset} Installed hooks`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_hooks', 'Installed hooks', {}, installLocale)}`);
     }
 
     // Add Codex hooks (SessionStart for update checking) — requires codex_hooks feature flag
@@ -5988,9 +6218,11 @@ function install(isGlobal, runtime = 'claude') {
       }
 
       fs.writeFileSync(configPath, configContent, 'utf-8');
-      console.log(`  ${green}✓${reset} Configured Codex hooks (SessionStart)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_codex_hooks', 'Configured Codex hooks (SessionStart)', {}, installLocale)}`);
     } catch (e) {
-      console.warn(`  ${yellow}⚠${reset}  Could not configure Codex hooks: ${e.message}`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('could_not_configure_codex_hooks', 'Could not configure Codex hooks: {{error}}', {
+        error: e.message,
+      }, installLocale)}`);
     }
 
     return { settingsPath: null, settings: null, statuslineCommand: null, runtime, configDir: targetDir };
@@ -6003,7 +6235,7 @@ function install(isGlobal, runtime = 'claude') {
     if (fs.existsSync(templatePath)) {
       const template = fs.readFileSync(templatePath, 'utf8');
       mergeCopilotInstructions(instructionsPath, template);
-      console.log(`  ${green}✓${reset} Generated copilot-instructions.md`);
+      console.log(`  ${green}✓${reset} ${installerText('generated_copilot_instructions', 'Generated copilot-instructions.md', {}, installLocale)}`);
     }
     // Copilot: no settings.json, no hooks, no statusline (like Codex)
     return { settingsPath: null, settings: null, statuslineCommand: null, runtime, configDir: targetDir };
@@ -6040,7 +6272,7 @@ function install(isGlobal, runtime = 'claude') {
       '  step to the user using Cline\'s ask_user tool after completing it.',
     ].join('\n') + '\n';
     fs.writeFileSync(clinerulesDest, clinerules);
-    console.log(`  ${green}✓${reset} Wrote .clinerules`);
+    console.log(`  ${green}✓${reset} ${installerText('wrote_clinerules', 'Wrote .clinerules', {}, installLocale)}`);
     return { settingsPath: null, settings: null, statuslineCommand: null, runtime, configDir: targetDir };
   }
 
@@ -6050,7 +6282,12 @@ function install(isGlobal, runtime = 'claude') {
   const settingsPath = path.join(targetDir, 'settings.json');
   const rawSettings = readSettings(settingsPath);
   if (rawSettings === null) {
-    console.log('  ' + yellow + 'i' + reset + '  Skipping settings.json configuration — file could not be parsed (comments or malformed JSON). Your existing settings are preserved.');
+    console.log('  ' + yellow + 'i' + reset + '  ' + installerText(
+      'skipping_settings_configuration_parse',
+      'Skipping settings.json configuration — file could not be parsed (comments or malformed JSON). Your existing settings are preserved.',
+      {},
+      installLocale
+    ));
     return;
   }
   const settings = validateHookFields(cleanupOrphanedHooks(rawSettings));
@@ -6084,7 +6321,7 @@ function install(isGlobal, runtime = 'claude') {
     }
     if (!settings.experimental.enableAgents) {
       settings.experimental.enableAgents = true;
-      console.log(`  ${green}✓${reset} Enabled experimental agents`);
+      console.log(`  ${green}✓${reset} ${installerText('enabled_experimental_agents', 'Enabled experimental agents', {}, installLocale)}`);
     }
   }
 
@@ -6115,9 +6352,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured update check hook`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_update_check_hook', 'Configured update check hook', {}, installLocale)}`);
     } else if (!hasGsdUpdateHook && !fs.existsSync(checkUpdateFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped update check hook — gsd-check-update.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'update check',
+        file: 'gsd-check-update.js',
+      }, installLocale)}`);
     }
 
     // Configure post-tool hook for context window monitoring
@@ -6141,9 +6381,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured context window monitor hook`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_context_monitor_hook', 'Configured context window monitor hook', {}, installLocale)}`);
     } else if (!hasContextMonitorHook && !fs.existsSync(contextMonitorFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped context monitor hook — gsd-context-monitor.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'context monitor',
+        file: 'gsd-context-monitor.js',
+      }, installLocale)}`);
     } else {
       // Migrate existing context monitor hooks: add matcher and timeout if missing
       for (const entry of settings.hooks[postToolEvent]) {
@@ -6160,7 +6403,7 @@ function install(isGlobal, runtime = 'claude') {
             }
           }
           if (migrated) {
-            console.log(`  ${green}✓${reset} Updated context monitor hook (added matcher + timeout)`);
+            console.log(`  ${green}✓${reset} ${installerText('updated_context_monitor_hook', 'Updated context monitor hook (added matcher + timeout)', {}, installLocale)}`);
           }
         }
       }
@@ -6189,9 +6432,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured prompt injection guard hook`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_prompt_guard_hook', 'Configured prompt injection guard hook', {}, installLocale)}`);
     } else if (!hasPromptGuardHook && !fs.existsSync(promptGuardFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped prompt guard hook — gsd-prompt-guard.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'prompt guard',
+        file: 'gsd-prompt-guard.js',
+      }, installLocale)}`);
     }
 
     // Configure PreToolUse hook for read-before-edit guidance (#1628)
@@ -6213,9 +6459,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured read-before-edit guard hook`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_read_guard_hook', 'Configured read-before-edit guard hook', {}, installLocale)}`);
     } else if (!hasReadGuardHook && !fs.existsSync(readGuardFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped read guard hook — gsd-read-guard.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'read guard',
+        file: 'gsd-read-guard.js',
+      }, installLocale)}`);
     }
 
     // Configure PostToolUse hook for read-time prompt injection scanning (#2201)
@@ -6237,9 +6486,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured read injection scanner hook`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_read_injection_scanner_hook', 'Configured read injection scanner hook', {}, installLocale)}`);
     } else if (!hasReadInjectionScannerHook && !fs.existsSync(readInjectionScannerFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped read injection scanner hook — gsd-read-injection-scanner.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'read injection scanner',
+        file: 'gsd-read-injection-scanner.js',
+      }, installLocale)}`);
     }
 
     // Community hooks — registered on install but opt-in at runtime.
@@ -6269,9 +6521,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured workflow guard hook (opt-in via hooks.workflow_guard)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_workflow_guard_hook', 'Configured workflow guard hook (opt-in via hooks.workflow_guard)', {}, installLocale)}`);
     } else if (!hasWorkflowGuardHook && !fs.existsSync(workflowGuardFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped workflow guard hook — gsd-workflow-guard.js not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'workflow guard',
+        file: 'gsd-workflow-guard.js',
+      }, installLocale)}`);
     }
 
     // Configure commit validation hook (Conventional Commits enforcement, opt-in)
@@ -6296,9 +6551,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured commit validation hook (opt-in via config)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_commit_validation_hook', 'Configured commit validation hook (opt-in via config)', {}, installLocale)}`);
     } else if (!hasValidateCommitHook && !fs.existsSync(validateCommitFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped commit validation hook — gsd-validate-commit.sh not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'commit validation',
+        file: 'gsd-validate-commit.sh',
+      }, installLocale)}`);
     }
 
     // Configure session state orientation hook (opt-in)
@@ -6318,9 +6576,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured session state orientation hook (opt-in via config)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_session_state_hook', 'Configured session state orientation hook (opt-in via config)', {}, installLocale)}`);
     } else if (!hasSessionStateHook && !fs.existsSync(sessionStateFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped session state hook — gsd-session-state.sh not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'session state',
+        file: 'gsd-session-state.sh',
+      }, installLocale)}`);
     }
 
     // Configure phase boundary detection hook (opt-in)
@@ -6342,9 +6603,12 @@ function install(isGlobal, runtime = 'claude') {
           }
         ]
       });
-      console.log(`  ${green}✓${reset} Configured phase boundary detection hook (opt-in via config)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_phase_boundary_hook', 'Configured phase boundary detection hook (opt-in via config)', {}, installLocale)}`);
     } else if (!hasPhaseBoundaryHook && !fs.existsSync(phaseBoundaryFile)) {
-      console.warn(`  ${yellow}⚠${reset}  Skipped phase boundary hook — gsd-phase-boundary.sh not found at target`);
+      console.warn(`  ${yellow}⚠${reset}  ${installerText('skipped_missing_hook', 'Skipped {{hook}} hook — {{file}} not found at target', {
+        hook: 'phase boundary',
+        file: 'gsd-phase-boundary.sh',
+      }, installLocale)}`);
     }
   }
 
@@ -6355,6 +6619,7 @@ function install(isGlobal, runtime = 'claude') {
  * Apply statusline config, then print completion message
  */
 function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, runtime = 'claude', isGlobal = true, configDir = null) {
+  const installLocale = resolveInstallerLocale();
   const isOpencode = runtime === 'opencode';
   const isKilo = runtime === 'kilo';
   const isCodex = runtime === 'codex';
@@ -6370,13 +6635,13 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
       // profile-level settings.json in Claude Code, so writing here would silently clobber
       // any profile-level statusLine the user has configured (#2248).
       // Pass --force-statusline to override this guard.
-      console.log(`  ${yellow}⚠${reset} Skipping statusLine for local install (avoids overriding profile-level settings; use --force-statusline to override)`);
+      console.log(`  ${yellow}⚠${reset} ${installerText('skipping_statusline_local', 'Skipping statusLine for local install (avoids overriding profile-level settings; use --force-statusline to override)', {}, installLocale)}`);
     } else {
       settings.statusLine = {
         type: 'command',
         command: statuslineCommand
       };
-      console.log(`  ${green}✓${reset} Configured statusline`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_statusline', 'Configured statusline', {}, installLocale)}`);
     }
   }
 
@@ -6409,26 +6674,14 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
       if (defaults.resolve_model_ids !== 'omit') {
         defaults.resolve_model_ids = 'omit';
         fs.writeFileSync(defaultsPath, JSON.stringify(defaults, null, 2) + '\n');
-        console.log(`  ${green}✓${reset} Set resolve_model_ids: "omit" in ~/.gsd/defaults.json`);
+        console.log(`  ${green}✓${reset} ${installerText('set_resolve_model_ids', 'Set resolve_model_ids: "omit" in ~/.gsd/defaults.json', {}, installLocale)}`);
       }
     } catch (e) {
-      console.log(`  ${yellow}⚠${reset} Could not write ~/.gsd/defaults.json: ${e.message}`);
+      console.log(`  ${yellow}⚠${reset} ${installerText('could_not_write_defaults', 'Could not write ~/.gsd/defaults.json: {{error}}', { error: e.message }, installLocale)}`);
     }
   }
 
-  let program = 'Claude Code';
-  if (runtime === 'opencode') program = 'OpenCode';
-  if (runtime === 'gemini') program = 'Gemini';
-  if (runtime === 'kilo') program = 'Kilo';
-  if (runtime === 'codex') program = 'Codex';
-  if (runtime === 'copilot') program = 'Copilot';
-  if (runtime === 'antigravity') program = 'Antigravity';
-  if (runtime === 'cursor') program = 'Cursor';
-  if (runtime === 'windsurf') program = 'Windsurf';
-  if (runtime === 'augment') program = 'Augment';
-  if (runtime === 'trae') program = 'Trae';
-  if (runtime === 'cline') program = 'Cline';
-  if (runtime === 'qwen') program = 'Qwen Code';
+  const program = getRuntimeDisplayName(runtime);
 
   let command = '/gsd-new-project';
   if (runtime === 'opencode') command = '/gsd-new-project';
@@ -6443,9 +6696,12 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'cline') command = '/gsd-new-project';
   if (runtime === 'qwen') command = '/gsd-new-project';
   console.log(`
-  ${green}Done!${reset} Open a blank directory in ${program} and run ${cyan}${command}${reset}.
+  ${green}${installerText('done_prefix', 'Done!', {}, installLocale)}${reset} ${installerText('open_blank_directory_and_run', 'Open a blank directory in {{program}} and run {{command}}.', {
+    program,
+    command: `${cyan}${command}${reset}`,
+  }, installLocale)}
 
-  ${cyan}Join the community:${reset} https://discord.gg/mYgfVNfA2r
+  ${cyan}${installerText('join_community', 'Join the community:', {}, installLocale)}${reset} https://discord.gg/mYgfVNfA2r
 `);
 }
 
@@ -6453,6 +6709,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
  * Handle statusline configuration with optional prompt
  */
 function handleStatusline(settings, isInteractive, callback) {
+  const installLocale = resolveInstallerLocale();
   const hasExisting = settings.statusLine != null;
 
   if (!hasExisting) {
@@ -6466,8 +6723,8 @@ function handleStatusline(settings, isInteractive, callback) {
   }
 
   if (!isInteractive) {
-    console.log(`  ${yellow}⚠${reset} Skipping statusline (already configured)`);
-    console.log(`    Use ${cyan}--force-statusline${reset} to replace\n`);
+    console.log(`  ${yellow}⚠${reset} ${installerText('skipping_statusline_existing', 'Skipping statusline (already configured)', {}, installLocale)}`);
+    console.log(`    ${installerText('use_force_statusline_to_replace', 'Use {{command}} to replace', { command: `${cyan}--force-statusline${reset}` }, installLocale)}\n`);
     callback(false);
     return;
   }
@@ -6480,17 +6737,17 @@ function handleStatusline(settings, isInteractive, callback) {
   });
 
   console.log(`
-  ${yellow}⚠${reset} Existing statusline detected\n
-  Your current statusline:
+  ${yellow}⚠${reset} ${installerText('statusline_existing_detected', 'Existing statusline detected', {}, installLocale)}\n
+  ${installerText('your_current_statusline', 'Your current statusline:', {}, installLocale)}
     ${dim}command: ${existingCmd}${reset}
 
-  GSD includes a statusline showing:
-    • Model name
-    • Current task (from todo list)
-    • Context window usage (color-coded)
+  ${installerText('gsd_includes_statusline', 'GSD includes a statusline showing:', {}, installLocale)}
+    • ${installerText('gsd_statusline_model_name', 'Model name', {}, installLocale)}
+    • ${installerText('gsd_statusline_current_task', 'Current task (from todo list)', {}, installLocale)}
+    • ${installerText('gsd_statusline_context_window', 'Context window usage (color-coded)', {}, installLocale)}
 
-  ${cyan}1${reset}) Keep existing
-  ${cyan}2${reset}) Replace with GSD statusline
+  ${cyan}1${reset}) ${installerText('keep_existing', 'Keep existing', {}, installLocale)}
+  ${cyan}2${reset}) ${installerText('replace_with_gsd_statusline', 'Replace with GSD statusline', {}, installLocale)}
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -6504,6 +6761,7 @@ function handleStatusline(settings, isInteractive, callback) {
  * Prompt for runtime selection
  */
 function promptRuntime(callback) {
+  const installLocale = resolveInstallerLocale();
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -6514,7 +6772,7 @@ function promptRuntime(callback) {
   rl.on('close', () => {
     if (!answered) {
       answered = true;
-      console.log(`\n  ${yellow}Installation cancelled${reset}\n`);
+      console.log(`\n  ${yellow}${installerText('installation_cancelled', 'Installation cancelled', {}, installLocale)}${reset}\n`);
       process.exit(0);
     }
   });
@@ -6537,7 +6795,7 @@ function promptRuntime(callback) {
   };
   const allRuntimes = ['claude', 'antigravity', 'augment', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'gemini', 'kilo', 'opencode', 'qwen', 'trae', 'windsurf'];
 
-  console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
+  console.log(`  ${yellow}${installerText('runtime_prompt_title', 'Which runtime(s) would you like to install for?', {}, installLocale)}${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
   ${cyan}2${reset}) Antigravity  ${dim}(~/.gemini/antigravity)${reset}
   ${cyan}3${reset}) Augment      ${dim}(~/.augment)${reset}
   ${cyan}4${reset}) Cline        ${dim}(.clinerules)${reset}
@@ -6553,7 +6811,7 @@ function promptRuntime(callback) {
   ${cyan}14${reset}) Windsurf     ${dim}(~/.codeium/windsurf)${reset}
   ${cyan}15${reset}) All
 
-  ${dim}Select multiple: 1,2,6 or 1 2 6${reset}
+  ${dim}${installerText('runtime_prompt_select_multiple', 'Select multiple: 1,2,6 or 1 2 6', {}, installLocale)}${reset}
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -6585,8 +6843,9 @@ function promptRuntime(callback) {
  * Prompt for install location
  */
 function promptLocation(runtimes) {
+  const installLocale = resolveInstallerLocale();
   if (!process.stdin.isTTY) {
-    console.log(`  ${yellow}Non-interactive terminal detected, defaulting to global install${reset}\n`);
+    console.log(`  ${yellow}${installerText('non_interactive_default_global', 'Non-interactive terminal detected, defaulting to global install', {}, installLocale)}${reset}\n`);
     installAllRuntimes(runtimes, true, false);
     return;
   }
@@ -6601,7 +6860,7 @@ function promptLocation(runtimes) {
   rl.on('close', () => {
     if (!answered) {
       answered = true;
-      console.log(`\n  ${yellow}Installation cancelled${reset}\n`);
+      console.log(`\n  ${yellow}${installerText('installation_cancelled', 'Installation cancelled', {}, installLocale)}${reset}\n`);
       process.exit(0);
     }
   });
@@ -6613,8 +6872,8 @@ function promptLocation(runtimes) {
 
   const localExamples = runtimes.map(r => `./${getDirName(r)}`).join(', ');
 
-  console.log(`  ${yellow}Where would you like to install?${reset}\n\n  ${cyan}1${reset}) Global ${dim}(${pathExamples})${reset} - available in all projects
-  ${cyan}2${reset}) Local  ${dim}(${localExamples})${reset} - this project only
+  console.log(`  ${yellow}${installerText('location_prompt_title', 'Where would you like to install?', {}, installLocale)}${reset}\n\n  ${cyan}1${reset}) ${installerText('location_option_global', 'Global', {}, installLocale)} ${dim}(${pathExamples})${reset} - ${installerText('location_option_global_desc', 'available in all projects', {}, installLocale)}
+  ${cyan}2${reset}) ${installerText('location_option_local', 'Local', {}, installLocale)}  ${dim}(${localExamples})${reset} - ${installerText('location_option_local_desc', 'this project only', {}, installLocale)}
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -6684,6 +6943,10 @@ if (process.env.GSD_TEST_MODE) {
     install,
     uninstall,
     convertClaudeCommandToCodexSkill,
+    resolveInstallerLocale,
+    resolveCodexSkillDisplayMetadata,
+    renderInstallerHelp,
+    renderWslWindowsNodeError,
     convertClaudeToOpencodeFrontmatter,
     convertClaudeToKiloFrontmatter,
     configureOpencodePermissions,
@@ -6740,14 +7003,14 @@ if (process.env.GSD_TEST_MODE) {
 
   // Main logic
   if (hasGlobal && hasLocal) {
-    console.error(`  ${yellow}Cannot specify both --global and --local${reset}`);
+    console.error(`  ${yellow}${installerText('cannot_specify_both_global_local', 'Cannot specify both --global and --local')}${reset}`);
     process.exit(1);
   } else if (explicitConfigDir && hasLocal) {
-    console.error(`  ${yellow}Cannot use --config-dir with --local${reset}`);
+    console.error(`  ${yellow}${installerText('cannot_use_config_dir_with_local', 'Cannot use --config-dir with --local')}${reset}`);
     process.exit(1);
   } else if (hasUninstall) {
     if (!hasGlobal && !hasLocal) {
-      console.error(`  ${yellow}--uninstall requires --global or --local${reset}`);
+      console.error(`  ${yellow}${installerText('uninstall_requires_global_or_local', '--uninstall requires --global or --local')}${reset}`);
       process.exit(1);
     }
     const runtimes = selectedRuntimes.length > 0 ? selectedRuntimes : ['claude'];
@@ -6766,7 +7029,7 @@ if (process.env.GSD_TEST_MODE) {
   } else {
     // Interactive
     if (!process.stdin.isTTY) {
-      console.log(`  ${yellow}Non-interactive terminal detected, defaulting to Claude Code global install${reset}\n`);
+      console.log(`  ${yellow}${installerText('non_interactive_default_claude_global', 'Non-interactive terminal detected, defaulting to Claude Code global install')}${reset}\n`);
       installAllRuntimes(['claude'], true, false);
     } else {
       promptRuntime((runtimes) => {

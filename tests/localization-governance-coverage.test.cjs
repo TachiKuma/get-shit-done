@@ -19,6 +19,14 @@ const CONFIG_DOC_PATH = path.join(ROOT, 'docs', 'CONFIGURATION.md');
 const FEATURES_DOC_PATH = path.join(ROOT, 'docs', 'FEATURES.md');
 const PLANNING_CONFIG_DOC_PATH = path.join(ROOT, 'get-shit-done', 'references', 'planning-config.md');
 const CODE_REVIEW_WORKFLOW_PATH = path.join(ROOT, 'get-shit-done', 'workflows', 'code-review.md');
+const FIRST_BATCH = [
+  'gsd-new-milestone',
+  'gsd-progress',
+  'gsd-discuss-phase',
+  'gsd-plan-phase',
+  'gsd-execute-phase',
+  'gsd-next',
+];
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -340,18 +348,35 @@ describe('localization governance manifest coverage', () => {
     assert.equal(entries.length, new Set(entries.map(entry => entry.entry)).size);
     assert.ok(entries.every(entry => Array.isArray(entry.surfaces) && entry.surfaces.length > 0));
     assert.ok(entries.some(entry => entry.entry.endsWith('tests/command-summary-localization.test.cjs')));
+    assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-skill-display-catalog.test.cjs')));
+    assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-skill-display-localization.test.cjs')));
+    assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-install-output-localization.test.cjs')));
     assert.ok(
       entries.some(entry =>
         entry.surfaces.some(surface => surface.id === 'command-summary-zh-CN')
       )
     );
+    assert.ok(
+      entries.some(entry =>
+        entry.surfaces.some(surface => surface.id === 'codex-skill-display-catalog-en')
+      )
+    );
+    assert.ok(
+      entries.some(entry =>
+        entry.surfaces.some(surface => surface.id === 'codex-install-output-first-batch')
+      )
+    );
   });
 
-  test('blocker surfaces include priority workflows, config docs, catalogs, and zh-CN command summary', () => {
+  test('blocker surfaces include priority workflows, config docs, catalogs, Codex install output, and zh-CN command summary', () => {
     const manifest = loadGovernanceManifest();
-    const blockerPaths = flattenSurfaces(manifest)
-      .filter(surface => surface.disposition === 'blocker')
-      .map(surface => surface.path);
+    const blockerSurfaces = flattenSurfaces(manifest).filter(surface => surface.disposition === 'blocker');
+    const blockerPaths = blockerSurfaces
+      .map(surface => surface.path)
+      .filter(Boolean);
+    const blockerPatterns = blockerSurfaces
+      .map(surface => surface.path_pattern)
+      .filter(Boolean);
 
     for (const expectedPath of [
       'get-shit-done/workflows/discuss-phase.md',
@@ -364,10 +389,58 @@ describe('localization governance manifest coverage', () => {
       'get-shit-done/locales/zh-CN/runtime.json',
       'get-shit-done/locales/en/assets.json',
       'get-shit-done/locales/zh-CN/assets.json',
+      'get-shit-done/locales/en/codex-skills.json',
+      'get-shit-done/locales/zh-CN/codex-skills.json',
       'docs/zh-CN/COMMANDS.md',
     ]) {
       assert.ok(blockerPaths.includes(expectedPath), `missing blocker surface ${expectedPath}`);
     }
+
+    assert.ok(
+      blockerPatterns.includes('.codex/skills/gsd-*/SKILL.md'),
+      'missing Codex install output blocker surface'
+    );
+  });
+
+  test('Codex governance groups stay blocker-scoped and keep the expected verifier entries', () => {
+    const manifest = loadGovernanceManifest();
+    const codexCatalogGroup = getSurfaceGroup(manifest, 'codex-skill-display-catalogs');
+    const codexInstallGroup = getSurfaceGroup(manifest, 'codex-install-output-first-batch');
+
+    assert.ok(codexCatalogGroup, 'codex catalog group should exist');
+    assert.equal(codexCatalogGroup.disposition, 'blocker');
+    assert.deepStrictEqual(codexCatalogGroup.scope_skills, FIRST_BATCH);
+    assert.match(codexCatalogGroup.reason, /six/i);
+    assert.match(codexCatalogGroup.reason, /deferred roadmap work/i);
+    assert.deepStrictEqual(
+      codexCatalogGroup.surfaces.map(surface => surface.path).sort(),
+      [
+        'get-shit-done/locales/en/codex-skills.json',
+        'get-shit-done/locales/zh-CN/codex-skills.json',
+      ]
+    );
+    assert.ok(
+      codexCatalogGroup.surfaces.some(
+        surface => surface.verification_entry === 'tests/codex-skill-display-catalog.test.cjs'
+      )
+    );
+    assert.ok(
+      codexCatalogGroup.surfaces.some(
+        surface => surface.verification_entry === 'tests/codex-skill-display-localization.test.cjs'
+      )
+    );
+
+    assert.ok(codexInstallGroup, 'codex install output group should exist');
+    assert.equal(codexInstallGroup.disposition, 'blocker');
+    assert.deepStrictEqual(codexInstallGroup.scope_skills, FIRST_BATCH);
+    assert.match(codexInstallGroup.reason, /six/i);
+    assert.match(codexInstallGroup.reason, /deferred roadmap work/i);
+    assert.equal(codexInstallGroup.surfaces.length, 1);
+    assert.equal(codexInstallGroup.surfaces[0].path_pattern, '.codex/skills/gsd-*/SKILL.md');
+    assert.equal(
+      codexInstallGroup.surfaces[0].verification_entry,
+      'tests/codex-install-output-localization.test.cjs'
+    );
   });
 
   test('warning-only command summary locales stay outside the blocker set', () => {
@@ -435,6 +508,16 @@ describe('localization governance verifier behavior', () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /tests\/command-summary-warning-locales\.test\.cjs/);
     assert.match(result.stdout, /surface:command-summary-ja-JP/);
+  });
+
+  test('baseline verifier reports Codex blocker surfaces through the dedicated verifier entries', () => {
+    const result = runVerifier();
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /tests\/codex-install-output-localization\.test\.cjs/);
+    assert.match(result.stdout, /surface:codex-install-output-first-batch/);
+    assert.match(result.stdout, /surface:codex-skill-display-catalog-en/);
+    assert.match(result.stdout, /surface:codex-skill-display-catalog-zh-CN/);
   });
 
   test('warning summary contract fails when fallback or mirror disclosure disappears', t => {

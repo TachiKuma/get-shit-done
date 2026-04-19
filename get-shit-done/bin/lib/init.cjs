@@ -1646,6 +1646,7 @@ function cmdAgentSkills(cwd, agentType, raw) {
 function buildSkillManifest(cwd, skillsDir = null) {
   const { extractFrontmatter } = require('./frontmatter.cjs');
   const os = require('os');
+  const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
 
   const canonicalRoots = skillsDir ? [{
     root: path.resolve(skillsDir),
@@ -1686,26 +1687,26 @@ function buildSkillManifest(cwd, skillsDir = null) {
     },
     {
       root: '~/.claude/skills',
-      path: path.join(os.homedir(), '.claude', 'skills'),
+      path: path.join(homeDir, '.claude', 'skills'),
       scope: 'global',
       kind: 'skills',
     },
     {
       root: '~/.codex/skills',
-      path: path.join(os.homedir(), '.codex', 'skills'),
+      path: path.join(homeDir, '.codex', 'skills'),
       scope: 'global',
       kind: 'skills',
     },
     {
       root: '.claude/get-shit-done/skills',
-      path: path.join(os.homedir(), '.claude', 'get-shit-done', 'skills'),
+      path: path.join(homeDir, '.claude', 'get-shit-done', 'skills'),
       scope: 'import-only',
       kind: 'skills',
       deprecated: true,
     },
     {
       root: '.claude/commands/gsd',
-      path: path.join(os.homedir(), '.claude', 'commands', 'gsd'),
+      path: path.join(homeDir, '.claude', 'commands', 'gsd'),
       scope: 'legacy-commands',
       kind: 'commands',
       deprecated: true,
