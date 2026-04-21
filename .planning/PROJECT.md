@@ -6,19 +6,16 @@
 
 ## Current State
 
-**Shipped: v1.2 - 2026-04-21**
+**Active: v1.3 — Phase 16 Complete (2026-04-21)**
 
-v1.2 已完成并归档，当前项目处于“等待定义下一里程碑”的状态。该里程碑交付了四类结果：
-1. **受控债务收口**：关闭 v1.1 路由的 Windows EPERM、hook regex 漂移和 Kilo help text 漂移
-2. **Claude locale contract 落地**：建立 `claude-skills` English baseline、首批 6-skill `zh-CN` promised subset、pair-level English fallback 与真实安装产物回归门控
-3. **受保护的 upstream 同步**：以 clean-base integration worktree + WIP replay 的方式与最新 `upstream/main` 对齐，并刷新 Phase 15 输入面
-4. **治理与验收闭环**：把 Claude first-batch display/install surfaces 接入 governance blocker，同时为 synced remainder 增加 English fallback boundary regression
+Phase 16 已完成，上游 v1.37-v1.38（68 commits）已通过 clean-base integration worktree + WIP replay 安全合并到主工作树。本地化成果（zh-CN catalog、governance manifest、本地化测试文件）已 SHA 核查，11/11 PROTECTED OK。
 
 **Current technical state:**
-- `codex-skills` 与 `claude-skills` 两条 installer display-layer locale namespace 已并存，均保留 English canonical source 边界
-- `bin/install.js` 已同时承载 Codex 与 Claude/Qwen shared converter 的 locale-aware display metadata 解析
-- `get-shit-done/locales/en/claude-skills.json` 当前覆盖最新 `82` 个 Claude installable skills，`zh-CN` 正式承诺范围维持首批 6 个 skills
-- 当前里程碑 focused suite 为 `72 passed / 0 failed`，`node scripts/verify-localization-governance.cjs` 为 `blocker_failures=0, warning_failures=0, deferred=6`
+- 上游 v1.37-v1.38（68 commits）已集成，upstream/main HEAD `d1b56feb` 与本地 main 同步
+- zh-CN catalog 5 个文件 SHA-256 与 Phase 16 基线完全一致，受保护文件无意外覆盖
+- governance verifier 当前 `blocker_failures=13`（因上游 bin/install.js 重构与 workflow docs 更新导致契约漂移），移交 Phase 17 修复
+- npm test 当前 `4872 passed, 46 failed`（远超 Phase 15 基线 72；失败项为本地化契约漂移，Phase 17 处理）
+- Phase 17（LOC-01/LOC-02）为当前下一目标：审计 sync 后受影响的本地化覆盖文件并按需刷新，重验 blocker suite
 
 ## Current Milestone: v1.3 上游持续同步与本地化框架维护
 
@@ -80,10 +77,8 @@ v1.2 已完成并归档，当前项目处于“等待定义下一里程碑”的
 
 ### Active (v1.3)
 
-- SYNC-07: 完成 upstream v1.37-v1.38 的 clean-base guarded sync（integration worktree + WIP replay）
-- SYNC-08: 本地化保护验收——sync 后 `locales/`、tests/、governance manifest 全绿
-- SYNC-09: CLAUDE.md 上游预检规则落地，未来每次 discuss/plan 前强制检查上游差距
 - LOC-01: 审计 sync 后受影响的本地化覆盖文件并按需刷新，保持 en + zh-CN contract 一致
+- LOC-02: sync 后 blocker suite 重验证（blocker_failures=0, warning_failures=0）
 
 ### Out of Scope
 
@@ -144,6 +139,7 @@ v1.2 已完成并归档，当前项目处于“等待定义下一里程碑”的
 | Claude locale fallback 必须是 pair-level fallback，而不是字段级 fallback | 防止 `description` 与 `metadata.short-description` 混语，保持安装产物观感与测试行为可预测 | ✓ v1.2 |
 | latest-upstream sync 采用 clean-base integration worktree + replay 本地多语言 WIP 的两阶段模式 | 当前主工作树长期脏，直接 merge 风险不可接受；需要把 clean sync 与 replay 完成态明确拆开 | ✓ v1.2 |
 | Claude first-batch zh-CN promised subset 与 wider inventory English baseline 必须分层：前者 blocker，后者 boundary regression | 避免 82-skill baseline 被误升级为 hard gate，同时仍保护 sync 后新增 remainder 的 English fallback | ✓ v1.2 |
+| Phase 16 guarded sync T-16-15 accept 策略：upstream bin/install.js 重构导致的本地化契约漂移不在 Phase 16 内修复，移交 Phase 17（LOC-01/LOC-02） | Phase 16 专注 sync 操作本身与受保护文件完整性，Phase 17 负责契约刷新与 blocker suite 重验证 | ✓ Phase 16 |
 
 ## Evolution
 
@@ -163,4 +159,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 — v1.3 milestone started*
+*Last updated: 2026-04-21 — Phase 16 complete (SYNC-07 PASS, SYNC-08 PARTIAL PASS, Phase 17 next)*
