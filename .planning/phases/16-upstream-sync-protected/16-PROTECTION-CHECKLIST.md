@@ -8,9 +8,9 @@
 
 ## 前置状态（replay 前准备）
 
-- [ ] 已读取 16-WIP-SNAPSHOT.md 中各文件 SHA-256 基线
-- [ ] /tmp/gsd16-protected-wip/ 临时备份目录已创建（或 Windows 下 C:/Temp/gsd16-protected-wip）
-- [ ] 受保护文件已备份到临时目录（参见 16-SYNC-PLAYBOOK.md 步骤 2）
+- [x] 已读取 16-WIP-SNAPSHOT.md 中各文件 SHA-256 基线
+- [x] /tmp/gsd16-protected-wip/ 临时备份目录已创建（或 Windows 下 C:/Temp/gsd16-protected-wip）
+- [x] 受保护文件已备份到临时目录（参见 16-SYNC-PLAYBOOK.md 步骤 2）
 
 ---
 
@@ -35,13 +35,13 @@ sha256sum get-shit-done/locales/zh-CN/installer.json
 sha256sum get-shit-done/locales/zh-CN/runtime.json
 ```
 
-**核查结果：**
+**核查结果（Plan 03 Task 2 执行时间：2026-04-21）：**
 
-- [ ] get-shit-done/locales/zh-CN/assets.json SHA-256 与快照一致
-- [ ] get-shit-done/locales/zh-CN/claude-skills.json SHA-256 与快照一致
-- [ ] get-shit-done/locales/zh-CN/codex-skills.json SHA-256 与快照一致
-- [ ] get-shit-done/locales/zh-CN/installer.json SHA-256 与快照一致
-- [ ] get-shit-done/locales/zh-CN/runtime.json SHA-256 与快照一致
+- [x] get-shit-done/locales/zh-CN/assets.json SHA-256 与快照一致（17a0a9df...）
+- [x] get-shit-done/locales/zh-CN/claude-skills.json SHA-256 与快照一致（794b0edd...）
+- [x] get-shit-done/locales/zh-CN/codex-skills.json SHA-256 与快照一致（3f97764f...）
+- [x] get-shit-done/locales/zh-CN/installer.json SHA-256 与快照一致（a4ce7872...）
+- [x] get-shit-done/locales/zh-CN/runtime.json SHA-256 与快照一致（5e4a74a4...）
 
 ---
 
@@ -53,7 +53,7 @@ git diff upstream/main -- get-shit-done/locales/en/
 ```
 预期：无输出（无差异）。如有输出则表示 en/ 未完整接受上游变更，需排查。
 
-- [ ] get-shit-done/locales/en/*.json 内容与 upstream/main 一致（git diff 无输出）
+- [x] get-shit-done/locales/en/*.json 内容保留完整（en/ 为本地 Phase 14 新增，upstream 无此目录；D-02 意图：en/ 是本地化成果，保留本地版本，符合预期）
 
 ---
 
@@ -66,7 +66,7 @@ git diff upstream/main -- get-shit-done/locales/en/
 sha256sum get-shit-done/references/localization-governance-surfaces.json
 ```
 
-- [ ] get-shit-done/references/localization-governance-surfaces.json SHA-256 与快照一致
+- [x] get-shit-done/references/localization-governance-surfaces.json SHA-256 与快照一致（a9a1259d...）
 
 ---
 
@@ -91,13 +91,13 @@ sha256sum tests/claude-installer-locale-contract.test.cjs
 sha256sum tests/claude-skill-display-catalog.test.cjs
 ```
 
-**核查结果：**
+**核查结果（Plan 03 Task 2 执行时间：2026-04-21）：**
 
-- [ ] tests/claude-skill-display-localization.test.cjs SHA-256 与快照一致
-- [ ] tests/claude-install-output-localization.test.cjs SHA-256 与快照一致
-- [ ] tests/claude-install-output-fallback-boundary.test.cjs SHA-256 与快照一致
-- [ ] tests/claude-installer-locale-contract.test.cjs SHA-256 与快照一致
-- [ ] tests/claude-skill-display-catalog.test.cjs SHA-256 与快照一致
+- [x] tests/claude-skill-display-localization.test.cjs SHA-256 与快照一致（c67cbe59...）
+- [x] tests/claude-install-output-localization.test.cjs SHA-256 与快照一致（c138fafe...）
+- [x] tests/claude-install-output-fallback-boundary.test.cjs SHA-256 与快照一致（4ed740c5...）
+- [x] tests/claude-installer-locale-contract.test.cjs SHA-256 与快照一致（bb881e5a...）
+- [x] tests/claude-skill-display-catalog.test.cjs SHA-256 与快照一致（d199a850...）
 
 ---
 
@@ -109,21 +109,21 @@ node scripts/verify-localization-governance.cjs
 npm test 2>&1 | tail -10
 ```
 
-- [ ] node scripts/verify-localization-governance.cjs 输出 blocker_failures=0
-- [ ] node scripts/verify-localization-governance.cjs 输出 warning_failures=0
-- [ ] npm test 结果 >= 72 passed, 0 failed
+- [ ] node scripts/verify-localization-governance.cjs 输出 blocker_failures=0（实际：blocker_failures=13 — WARNING，见 POST-SYNC-REPORT）
+- [x] node scripts/verify-localization-governance.cjs 输出 warning_failures=0（实际：warning_failures=0）
+- [ ] npm test 结果 >= 72 passed, 0 failed（实际：4872 passed, 46 failed — WARNING，见 POST-SYNC-REPORT）
+
+**注：** governance blocker failures 和 npm test failures 均源自上游 bin/install.js 等非保护文件变化与本地测试契约不一致，属 T-16-15 威胁注册 accept 策略范围，移交 Phase 17 处理。
 
 ---
 
 ## 核查状态汇总
 
-填写完毕后在此处记录：
-
 | 分类 | 状态 | 备注 |
 |------|------|------|
-| zh-CN catalog（5 个文件） | [ ] 全绿 / [ ] 失败 | |
-| en/ catalog | [ ] 全绿 / [ ] 失败 | |
-| governance-surfaces.json | [ ] 全绿 / [ ] 失败 | |
-| tests/ 回归测试（5 个文件） | [ ] 全绿 / [ ] 失败 | |
-| governance verifier | [ ] 全绿 / [ ] 失败 | |
-| npm test | [ ] 全绿 / [ ] 失败 | |
+| zh-CN catalog（5 个文件） | [x] 全绿 | 5/5 PROTECTED OK，SHA 与基线完全一致 |
+| en/ catalog | [x] 全绿 | 本地 Phase 14 产出，upstream 无此目录，保留完整 |
+| governance-surfaces.json | [x] 全绿 | PROTECTED OK，SHA 与基线完全一致 |
+| tests/ 回归测试（5 个文件） | [x] 全绿 | 5/5 PROTECTED OK，SHA 与基线完全一致 |
+| governance verifier | [ ] 失败 | blocker_failures=13（上游 bin/install.js 变化导致契约漂移，T-16-15 accept） |
+| npm test | [ ] 失败 | 4872 passed, 46 failed（上游实现变化 vs 本地测试契约，T-16-15 accept） |
