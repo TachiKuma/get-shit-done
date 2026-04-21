@@ -11,6 +11,18 @@ commands.html
 # Cursor IDE — local agents/skills bundle (never commit)
 .cursor/
 
+# Codex CLI — local config and agents (never commit)
+.codex/
+
+# Temporary audit artifacts (never commit)
+.tmp-codex-audit/
+
+# CCB (Claude Code Bridge) local config (never commit)
+.ccb/
+
+# OpenCode local permission config (never commit)
+opencode.json
+
 # Build artifacts (committed to npm, not git)
 hooks/dist/
 
