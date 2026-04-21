@@ -344,13 +344,15 @@ describe('localization governance manifest coverage', () => {
   test('manifest verification entries are deduped and preserve linked surfaces', () => {
     const entries = collectVerificationEntries(loadGovernanceManifest());
 
-    assert.ok(entries.length >= 5, 'expected manifest-backed verification entries');
+    assert.ok(entries.length >= 7, 'expected manifest-backed verification entries');
     assert.equal(entries.length, new Set(entries.map(entry => entry.entry)).size);
     assert.ok(entries.every(entry => Array.isArray(entry.surfaces) && entry.surfaces.length > 0));
     assert.ok(entries.some(entry => entry.entry.endsWith('tests/command-summary-localization.test.cjs')));
     assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-skill-display-catalog.test.cjs')));
     assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-skill-display-localization.test.cjs')));
     assert.ok(entries.some(entry => entry.entry.endsWith('tests/codex-install-output-localization.test.cjs')));
+    assert.ok(entries.some(entry => entry.entry.endsWith('tests/claude-skill-display-localization.test.cjs')));
+    assert.ok(entries.some(entry => entry.entry.endsWith('tests/claude-install-output-localization.test.cjs')));
     assert.ok(
       entries.some(entry =>
         entry.surfaces.some(surface => surface.id === 'command-summary-zh-CN')
@@ -366,9 +368,19 @@ describe('localization governance manifest coverage', () => {
         entry.surfaces.some(surface => surface.id === 'codex-install-output-first-batch')
       )
     );
+    assert.ok(
+      entries.some(entry =>
+        entry.surfaces.some(surface => surface.id === 'claude-skill-display-catalog-zh-CN-first-batch')
+      )
+    );
+    assert.ok(
+      entries.some(entry =>
+        entry.surfaces.some(surface => surface.id === 'claude-install-output-first-batch')
+      )
+    );
   });
 
-  test('blocker surfaces include priority workflows, config docs, catalogs, Codex install output, and zh-CN command summary', () => {
+  test('blocker surfaces include priority workflows, config docs, catalogs, Codex and Claude install output, and zh-CN command summary', () => {
     const manifest = loadGovernanceManifest();
     const blockerSurfaces = flattenSurfaces(manifest).filter(surface => surface.disposition === 'blocker');
     const blockerPaths = blockerSurfaces
@@ -391,6 +403,8 @@ describe('localization governance manifest coverage', () => {
       'get-shit-done/locales/zh-CN/assets.json',
       'get-shit-done/locales/en/codex-skills.json',
       'get-shit-done/locales/zh-CN/codex-skills.json',
+      'get-shit-done/locales/en/claude-skills.json',
+      'get-shit-done/locales/zh-CN/claude-skills.json',
       'docs/zh-CN/COMMANDS.md',
     ]) {
       assert.ok(blockerPaths.includes(expectedPath), `missing blocker surface ${expectedPath}`);
@@ -399,6 +413,10 @@ describe('localization governance manifest coverage', () => {
     assert.ok(
       blockerPatterns.includes('.codex/skills/gsd-*/SKILL.md'),
       'missing Codex install output blocker surface'
+    );
+    assert.ok(
+      blockerPatterns.includes('skills/gsd-*/SKILL.md'),
+      'missing Claude install output blocker surface'
     );
   });
 
@@ -440,6 +458,44 @@ describe('localization governance manifest coverage', () => {
     assert.equal(
       codexInstallGroup.surfaces[0].verification_entry,
       'tests/codex-install-output-localization.test.cjs'
+    );
+  });
+
+  test('Claude governance groups stay blocker-scoped and keep the expected verifier entries', () => {
+    const manifest = loadGovernanceManifest();
+    const claudeCatalogGroup = getSurfaceGroup(manifest, 'claude-skill-display-localization-first-batch');
+    const claudeInstallGroup = getSurfaceGroup(manifest, 'claude-install-output-first-batch');
+
+    assert.ok(claudeCatalogGroup, 'claude catalog group should exist');
+    assert.equal(claudeCatalogGroup.disposition, 'blocker');
+    assert.deepStrictEqual(claudeCatalogGroup.scope_skills, FIRST_BATCH);
+    assert.match(claudeCatalogGroup.reason, /six/i);
+    assert.match(claudeCatalogGroup.reason, /82-skill English baseline/i);
+    assert.match(claudeCatalogGroup.reason, /not upgraded to a hard gate/i);
+    assert.deepStrictEqual(
+      claudeCatalogGroup.surfaces.map(surface => surface.path).sort(),
+      [
+        'get-shit-done/locales/en/claude-skills.json',
+        'get-shit-done/locales/zh-CN/claude-skills.json',
+      ]
+    );
+    assert.ok(
+      claudeCatalogGroup.surfaces.every(
+        surface => surface.verification_entry === 'tests/claude-skill-display-localization.test.cjs'
+      )
+    );
+
+    assert.ok(claudeInstallGroup, 'claude install output group should exist');
+    assert.equal(claudeInstallGroup.disposition, 'blocker');
+    assert.deepStrictEqual(claudeInstallGroup.scope_skills, FIRST_BATCH);
+    assert.match(claudeInstallGroup.reason, /six/i);
+    assert.match(claudeInstallGroup.reason, /82-skill English baseline/i);
+    assert.match(claudeInstallGroup.reason, /outside blocker scope/i);
+    assert.equal(claudeInstallGroup.surfaces.length, 1);
+    assert.equal(claudeInstallGroup.surfaces[0].path_pattern, 'skills/gsd-*/SKILL.md');
+    assert.equal(
+      claudeInstallGroup.surfaces[0].verification_entry,
+      'tests/claude-install-output-localization.test.cjs'
     );
   });
 
@@ -518,6 +574,17 @@ describe('localization governance verifier behavior', () => {
     assert.match(result.stdout, /surface:codex-install-output-first-batch/);
     assert.match(result.stdout, /surface:codex-skill-display-catalog-en/);
     assert.match(result.stdout, /surface:codex-skill-display-catalog-zh-CN/);
+  });
+
+  test('baseline verifier reports Claude blocker surfaces through the dedicated verifier entries', () => {
+    const result = runVerifier();
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /tests\/claude-skill-display-localization\.test\.cjs/);
+    assert.match(result.stdout, /tests\/claude-install-output-localization\.test\.cjs/);
+    assert.match(result.stdout, /surface:claude-skill-display-catalog-en-first-batch/);
+    assert.match(result.stdout, /surface:claude-skill-display-catalog-zh-CN-first-batch/);
+    assert.match(result.stdout, /surface:claude-install-output-first-batch/);
   });
 
   test('warning summary contract fails when fallback or mirror disclosure disappears', t => {

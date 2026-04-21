@@ -27,7 +27,7 @@ import { loadConfig } from '../config.js';
 import { resolveModel, MODEL_PROFILES } from './config-query.js';
 import { findPhase } from './phase.js';
 import { roadmapGetPhase, getMilestoneInfo } from './roadmap.js';
-import { planningPaths, normalizePhaseName, toPosixPath } from './helpers.js';
+import { planningPaths, normalizePhaseName, toPosixPath, resolveAgentsDir, detectRuntime } from './helpers.js';
 import type { QueryHandler } from './utils.js';
 
 // ─── Internal helpers ──────────────────────────────────────────────────────
@@ -79,11 +79,16 @@ function getLatestCompletedMilestone(projectDir: string): { version: string; nam
 
 /**
  * Check which GSD agents are installed on disk.
+ *
+ * Runtime-aware per issue #2402: detects the invoking runtime
+ * (`GSD_RUNTIME` → `config.runtime` → 'claude') and probes that runtime's
+ * canonical `agents/` directory. `GSD_AGENTS_DIR` still short-circuits.
+ *
  * Port of checkAgentsInstalled from core.cjs lines 1274-1306.
  */
-function checkAgentsInstalled(): { agents_installed: boolean; missing_agents: string[] } {
-  const agentsDir = process.env.GSD_AGENTS_DIR
-    || join(homedir(), '.claude', 'get-shit-done', 'agents');
+function checkAgentsInstalled(config?: { runtime?: unknown }): { agents_installed: boolean; missing_agents: string[] } {
+  const runtime = detectRuntime(config);
+  const agentsDir = resolveAgentsDir(runtime);
   const expectedAgents = Object.keys(MODEL_PROFILES);
 
   if (!existsSync(agentsDir)) {
@@ -172,7 +177,7 @@ export function withProjectRoot(
 ): Record<string, unknown> {
   result.project_root = projectDir;
 
-  const agentStatus = checkAgentsInstalled();
+  const agentStatus = checkAgentsInstalled(config);
   result.agents_installed = agentStatus.agents_installed;
   result.missing_agents = agentStatus.missing_agents;
 
@@ -943,6 +948,26 @@ export const initRemoveWorkspace: QueryHandler = async (args, _projectDir) => {
   };
 
   return { data: result };
+};
+
+// ─── initIngestDocs ───────────────────────────────────────────────────────
+
+/**
+ * Init handler for ingest-docs workflow.
+ * Mirrors `initResume` shape but without current-agent-id lookup — the
+ * ingest-docs workflow reads `project_exists`, `planning_exists`, `has_git`,
+ * and `project_path` to branch between new-project vs merge-milestone modes.
+ */
+export const initIngestDocs: QueryHandler = async (_args, projectDir) => {
+  const config = await loadConfig(projectDir);
+  const result: Record<string, unknown> = {
+    project_exists: pathExists(projectDir, '.planning/PROJECT.md'),
+    planning_exists: pathExists(projectDir, '.planning'),
+    has_git: pathExists(projectDir, '.git'),
+    project_path: '.planning/PROJECT.md',
+    commit_docs: config.commit_docs,
+  };
+  return { data: withProjectRoot(projectDir, result, config as Record<string, unknown>) };
 };
 
 // ─── docsInit ────────────────────────────────────────────────────────────

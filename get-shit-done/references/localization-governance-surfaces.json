@@ -173,6 +173,59 @@
       ]
     },
     {
+      "group": "claude-skill-display-localization-first-batch",
+      "disposition": "blocker",
+      "owner_hint": "claude-runtime-maintainers",
+      "reason": "Phase 15 locks the first-batch six Claude `claude-skills` entries as the official zh-CN promised subset, while the full 82-skill English baseline stays under inventory regression coverage and the wider inventory is not upgraded to a hard gate.",
+      "scope_skills": [
+        "gsd-new-milestone",
+        "gsd-progress",
+        "gsd-discuss-phase",
+        "gsd-plan-phase",
+        "gsd-execute-phase",
+        "gsd-next"
+      ],
+      "surfaces": [
+        {
+          "id": "claude-skill-display-catalog-en-first-batch",
+          "path": "get-shit-done/locales/en/claude-skills.json",
+          "canonical_source": "English Claude display catalog",
+          "expected_check": "English catalog keeps the canonical display pair for the official first-batch six-skill promised subset without upgrading the wider 82-skill inventory to blocker scope",
+          "verification_entry": "tests/claude-skill-display-localization.test.cjs"
+        },
+        {
+          "id": "claude-skill-display-catalog-zh-CN-first-batch",
+          "path": "get-shit-done/locales/zh-CN/claude-skills.json",
+          "canonical_source": "First-batch zh-CN Claude display catalog",
+          "expected_check": "Catalog stays at the official six-skill promised subset and localized values remain inside the display-layer field boundary",
+          "verification_entry": "tests/claude-skill-display-localization.test.cjs"
+        }
+      ]
+    },
+    {
+      "group": "claude-install-output-first-batch",
+      "disposition": "blocker",
+      "owner_hint": "claude-runtime-maintainers",
+      "reason": "Real Claude install output for the first-batch six promised skills is the hard gate for zh-CN acceptance, while the full 82-skill English baseline remains inventory coverage and the wider remainder is kept outside blocker scope.",
+      "scope_skills": [
+        "gsd-new-milestone",
+        "gsd-progress",
+        "gsd-discuss-phase",
+        "gsd-plan-phase",
+        "gsd-execute-phase",
+        "gsd-next"
+      ],
+      "surfaces": [
+        {
+          "id": "claude-install-output-first-batch",
+          "path_pattern": "skills/gsd-*/SKILL.md",
+          "canonical_source": "commands/gsd/*.md plus get-shit-done/locales/{en,zh-CN}/claude-skills.json",
+          "expected_check": "Real install output preserves English canonical bodies while resolving the official first-batch six-skill en plus zh-CN display metadata correctly",
+          "verification_entry": "tests/claude-install-output-localization.test.cjs"
+        }
+      ]
+    },
+    {
       "group": "command-summary-first-batch",
       "disposition": "blocker",
       "owner_hint": "docs-maintainers",

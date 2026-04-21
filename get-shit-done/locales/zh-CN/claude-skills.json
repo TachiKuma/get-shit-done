@@ -1,0 +1,14 @@
+{
+  "claude-skills.gsd-new-milestone.description": "启动新的里程碑周期，更新 PROJECT.md 并进入需求梳理",
+  "claude-skills.gsd-new-milestone.short-description": "启动新里程碑并进入需求梳理",
+  "claude-skills.gsd-progress.description": "检查项目进度，查看当前上下文，并路由到下一步执行或规划动作",
+  "claude-skills.gsd-progress.short-description": "检查进度并路由到下一步",
+  "claude-skills.gsd-discuss-phase.description": "在规划前收集阶段上下文，通过提问锁定实现决策与边界",
+  "claude-skills.gsd-discuss-phase.short-description": "收集阶段上下文并锁定决策",
+  "claude-skills.gsd-plan-phase.description": "创建详细阶段计划（PLAN.md），并完成执行前验证闭环",
+  "claude-skills.gsd-plan-phase.short-description": "创建阶段计划并完成执行前验证",
+  "claude-skills.gsd-execute-phase.description": "按 wave 执行阶段内全部计划，并生成对应执行结果",
+  "claude-skills.gsd-execute-phase.short-description": "按 wave 执行阶段计划",
+  "claude-skills.gsd-next.description": "根据当前 GSD 状态自动推进到下一步工作流",
+  "claude-skills.gsd-next.short-description": "自动推进到下一步工作流"
+}

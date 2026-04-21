@@ -40,13 +40,16 @@ before(() => {
 
 describe('#1736: local Claude install populates .claude/commands/gsd/', () => {
   let tmpDir;
+  let previousCwd;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-local-install-1736-'));
+    previousCwd = process.cwd();
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    process.chdir(previousCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   });
 
   test('local install creates .claude/commands/gsd/ directory', (t) => {
