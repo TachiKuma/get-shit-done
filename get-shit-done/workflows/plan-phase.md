@@ -2,11 +2,6 @@
 Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
 </purpose>
 
-<localization_contract>
-Fixed-string labels for generated planning artifacts such as `VALIDATION` belong to the `assets` locale namespace, while plan-specific narrative remains generated via `response_language`.
-Commands, paths, code, identifiers, and key technical terms remain in English.
-</localization_contract>
-
 <required_reading>
 Read all files referenced by the invoking prompt's execution_context before starting.
 
@@ -51,7 +46,7 @@ When `CONTEXT_WINDOW >= 500000`, the planner prompt includes the 3 most recent p
 
 Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `nyquist_validation_enabled`, `commit_docs`, `text_mode`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_reviews`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`.
 
-**If `response_language` is set:** Treat it as a normalized canonical locale (for example `en`, `zh-CN`, `ja-JP`, `ko-KR`, `pt-BR`) and include `response_language: {value}` in all spawned subagent prompts so any user-facing output stays in the configured language. Commands, paths, code, and key technical terms remain in English.
+**If `response_language` is set:** Include `response_language: {value}` in all spawned subagent prompts so any user-facing output stays in the configured language.
 
 **File paths (for <files_to_read> blocks):** `state_path`, `roadmap_path`, `requirements_path`, `context_path`, `research_path`, `verification_path`, `uat_path`, `reviews_path`. These are null if files don't exist.
 
@@ -480,9 +475,9 @@ UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
 
 **If UI-SPEC.md missing AND `UI_GATE_CFG` is `true`:**
 
-Read auto-chain state:
+Read ephemeral chain flag (same field as `check.auto-mode` → `auto_chain_active`):
 ```bash
-AUTO_CHAIN=$(gsd-sdk query config-get workflow._auto_chain_active 2>/dev/null || echo "false")
+AUTO_CHAIN=$(gsd-sdk query check auto-mode --pick auto_chain_active 2>/dev/null || echo "false")
 ```
 
 **If `AUTO_CHAIN` is `true` (running inside a `--chain` or `--auto` pipeline):**
@@ -725,7 +720,8 @@ ${CONTEXT_WINDOW >= 500000 ? `
 **Cross-phase context (1M model enrichment):**
 - CONTEXT.md files from the 3 most recent completed phases (locked decisions — maintain consistency)
 - SUMMARY.md files from the 3 most recent completed phases (what was built — reuse patterns, avoid duplication)
-- CONTEXT.md and SUMMARY.md from any phases listed in the current phase's "Depends on:" field in ROADMAP.md (regardless of recency — explicit dependencies always load, deduplicated against the 3 most recent)
+- LEARNINGS.md files from the 3 most recent completed phases (structured decisions, patterns, lessons, surprises — skip silently if a phase has no LEARNINGS.md; prefix each block with \`[from Phase N LEARNINGS]\` for source attribution; if total size exceeds 15% of context budget, drop oldest first)
+- CONTEXT.md, SUMMARY.md, and LEARNINGS.md from any phases listed in the current phase's "Depends on:" field in ROADMAP.md (regardless of recency — explicit dependencies always load, deduplicated against the 3 most recent)
 - Skip all other prior phases to stay within context budget
 ` : ''}
 </files_to_read>
@@ -1154,15 +1150,29 @@ gsd-sdk query state.planned-phase --phase "${PHASE_NUMBER}" --name "${PHASE_NAME
 
 This updates STATUS to "Ready to execute", sets the correct plan count, and timestamps Last Activity.
 
-## 13c. Commit Plans if commit_docs is true
+## 13c. Annotate ROADMAP with Wave Dependencies and Cross-cutting Constraints
 
-If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts:
+After plans are finalized, annotate the ROADMAP.md plan list for this phase with:
+- **Wave dependency notes** — a bold header before each wave group ("Wave 2 *(blocked on Wave 1 completion)*")
+- **Cross-cutting constraints** — a "Cross-cutting constraints:" subsection listing `must_haves.truths` entries that appear in 2 or more plans
+
+This step is derived entirely from existing PLAN frontmatter — no extra LLM pass is required.
 
 ```bash
-gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE_DIR}"/*-PLAN.md .planning/STATE.md
+gsd-sdk query roadmap.annotate-dependencies "${PHASE_NUMBER}"
 ```
 
-This commits all PLAN.md files for the phase plus the updated STATE.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
+This operation is idempotent: if wave headers or cross-cutting constraints already exist in the ROADMAP phase section, the command returns without modifying the file. Skip this step if `plan_count` is 0.
+
+## 13d. Commit Plans if commit_docs is true
+
+If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
+
+```bash
+gsd-sdk query commit "docs(${PADDED_PHASE}): create phase plan" --files "${PHASE_DIR}"/*-PLAN.md .planning/STATE.md .planning/ROADMAP.md
+```
+
+This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
 
 ## 14. Present Final Status
 

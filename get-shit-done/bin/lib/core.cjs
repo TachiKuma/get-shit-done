@@ -395,6 +395,7 @@ function loadConfig(cwd) {
       manager: parsed.manager || {},
       response_language: normalizeLocale(get('response_language')) || null,
       claude_md_path: get('claude_md_path') || null,
+      claude_md_assembly: parsed.claude_md_assembly || null,
     };
   } catch {
     // Fall back to ~/.gsd/defaults.json only for truly pre-project contexts (#1683)
