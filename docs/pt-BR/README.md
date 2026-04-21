@@ -16,7 +16,7 @@ A página em inglês [`../README.md`](../README.md) é o canonical docs index. E
 | [Referência de configuração](CONFIGURATION.md) | Todos os usuários | Schema completo de configuração, toggles e perfis |
 | [Referência de recursos](FEATURES.md) | Todos os usuários | Recursos e requisitos detalhados |
 | [Referência de agentes](AGENTS.md) | Contribuidores, usuários avançados | Agentes especializados, papéis e padrões de orquestração |
-| [Ferramentas CLI](CLI-TOOLS.md) | Contribuidores, autores de agentes | API programática `gsd-tools.cjs` |
+| [Ferramentas CLI](CLI-TOOLS.md) | Contribuidores, autores de agentes | Superfície CJS `gsd-tools.cjs` + guia **`gsd-sdk query`/SDK** |
 | [Monitor de contexto](context-monitor.md) | Todos os usuários | Arquitetura de monitoramento da janela de contexto |
 | [Discuss Mode](workflow-discuss-mode.md) | Todos os usuários | Modo suposições vs entrevista no `discuss-phase` |
 | [Referências](../references/) | Todos os usuários | Guias complementares de decisão, verificação e padrões (fallback em inglês) |

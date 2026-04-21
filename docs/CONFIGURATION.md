@@ -110,9 +110,10 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
 | `granularity` | enum | `coarse`, `standard`, `fine` | `standard` | Controls phase count: `coarse` (3-5), `standard` (5-8), `fine` (8-12) |
 | `model_profile` | enum | `quality`, `balanced`, `budget`, `inherit` | `balanced` | Model tier for each agent (see [Model Profiles](#model-profiles)) |
 | `project_code` | string | any short string | (none) | Prefix for phase directory names (e.g., `"ABC"` produces `ABC-01-setup/`). Added in v1.31 |
-| `response_language` | string | BCP 47 canonical locale | (none) | Language for agent responses (recommended: `"en"`, `"zh-CN"`, `"ja-JP"`, `"ko-KR"`, `"pt-BR"`). Legacy aliases and natural-language names are accepted only at the input boundary, then normalized to a canonical locale. Added in v1.32 |
+| `response_language` | string | language code | (none) | Language for agent responses (e.g., `"pt"`, `"ko"`, `"ja"`). Propagates to all spawned agents for cross-phase language consistency. Added in v1.32 |
 | `context_profile` | string | `dev`, `research`, `review` | (none) | Execution context preset that applies a pre-configured bundle of mode, model, and workflow settings for the current type of work. Added in v1.34 |
 | `claude_md_path` | string | any file path | `./CLAUDE.md` | Custom output path for the generated CLAUDE.md file. Useful for monorepos or projects that need CLAUDE.md in a non-root location. Defaults to `./CLAUDE.md` at the project root. Added in v1.36 |
+| `claude_md_assembly.mode` | enum | `embed`, `link` | `embed` | Controls how managed sections are written into CLAUDE.md. `embed` (default) inlines content between GSD markers. `link` writes `@.planning/<source-path>` instead — Claude Code expands the reference at runtime, reducing CLAUDE.md size by ~65% on typical projects. `link` only applies to sections that have a real source file; `workflow` and fallback sections always embed. Per-block overrides: `claude_md_assembly.blocks.<section>` (e.g. `claude_md_assembly.blocks.architecture: link`). Added in v1.38 |
 | `context` | string | any text | (none) | Custom context string injected into every agent prompt for the project. Use to provide persistent project-specific guidance (e.g., coding conventions, team practices) that every agent should be aware of |
 | `phase_naming` | string | any string | (none) | Custom prefix for phase directory names. When set, overrides the auto-generated phase slug (e.g., `"feature"` produces `feature-01-setup/` instead of the roadmap-derived slug) |
 | `brave_search` | boolean | `true`/`false` | auto-detected | Override auto-detection of Brave Search API availability. When unset, GSD checks for `BRAVE_API_KEY` env var or `~/.gsd/brave_api_key` file |
@@ -121,48 +122,6 @@ GSD stores project settings in `.planning/config.json`. Created during `/gsd-new
 | `search_gitignored` | boolean | `true`/`false` | `false` | Legacy top-level alias for `planning.search_gitignored`. Prefer the namespaced form; this alias is accepted for backward compatibility |
 
 > **Note:** `granularity` was renamed from `depth` in v1.22.3. Existing configs are auto-migrated.
-
-### `response_language` Contract
-
-- Recommended values use BCP 47 canonical locale tags such as `en` and `zh-CN`.
-- Legacy aliases and natural-language inputs are still accepted at the input boundary, then normalized to the canonical locale used internally.
-- Runtime generated output, installer fixed-string output, and Codex install-time display metadata are three separate localization chains that all start from the same normalized canonical locale.
-- Runtime generated output uses `response_language` for agent responses and other generated user-facing output during execution.
-- Installer fixed-string output uses the `installer` locale catalog for install-time and uninstall-time CLI copy such as progress lines, help text, prompts, warnings, and completion messages.
-- Codex install output uses the `codex-skills` locale catalog only for the generated `SKILL.md` display-layer fields `description` and `metadata.short-description`.
-- The official v1.1 Codex install-display contract is intentionally limited to these six skills: `gsd-new-milestone`, `gsd-progress`, `gsd-discuss-phase`, `gsd-plan-phase`, `gsd-execute-phase`, and `gsd-next`.
-- `English canonical` sources remain the source of truth for commands, workflows, maintainer references, skill bodies, and Codex adapter content even when localized mirrors exist.
-- Fallback order for the first localized runtime path is `zh-CN -> en`; unknown locale inputs also fall back to `en`.
-- For Codex install output, `zh-CN -> en` also applies to the `codex-skills` display pair. If locale data is incomplete or unsupported, the installer falls back to the full English canonical value for that field instead of mixing languages.
-- Wider `gsd-*` Codex display coverage remains deferred roadmap work; this contract does not imply localization for other skills yet.
-- Commands, paths, code snippets, config keys, command names, flags, file names, and key technical terms remain in English even when `response_language` is set.
-
-Minimal Codex example:
-
-```json
-{
-  "response_language": "zh-CN"
-}
-```
-
-```bash
-node bin/install.js --codex --local
-```
-
-Expected result for the first-batch six Codex skills only:
-
-- `description` and `metadata.short-description` resolve from `get-shit-done/locales/<locale>/codex-skills.json`
-- Covered skills: `gsd-new-milestone`, `gsd-progress`, `gsd-discuss-phase`, `gsd-plan-phase`, `gsd-execute-phase`, `gsd-next`
-- `name`, skill body, `codex_skill_adapter`, command names, flags, paths, frontmatter structure keys, and other technical identifiers remain `English canonical`
-
-Expected result for installer-facing CLI output:
-
-- `node bin/install.js --help` resolves headings, option descriptions, examples, and notes from `get-shit-done/locales/<locale>/installer.json`
-- Install/uninstall progress lines, prompts, warnings, and completion messages use the same `installer` locale catalog
-- Runtime names, command flags, paths, file names, and other technical identifiers remain `English canonical`
-
-See `get-shit-done/references/localization-glossary.md` for the canonical locale, fallback, mirror, and Do Not Translate wording used by localization governance.
-See `get-shit-done/references/localization-sync-playbook.md` for the maintainer workflow when an English canonical change touches blocker or warning surfaces.
 
 ---
 
@@ -289,7 +248,7 @@ Any GSD agent type can receive skills. Common types:
 
 ### How It Works
 
-At spawn time, workflows call `node gsd-tools.cjs agent-skills <type>` to load configured skills. If skills exist for the agent type, they are injected as an `<agent_skills>` block in the Task() prompt:
+At spawn time, workflows call `gsd-sdk query agent-skills <type>` (or legacy `node gsd-tools.cjs agent-skills <type>`) to load configured skills. If skills exist for the agent type, they are injected as an `<agent_skills>` block in the Task() prompt:
 
 ```xml
 <agent_skills>
@@ -306,7 +265,7 @@ If no skills are configured, the block is omitted (zero overhead).
 Set skills via the CLI:
 
 ```bash
-node gsd-tools.cjs config-set agent_skills.gsd-executor '["skills/my-skill"]'
+gsd-sdk query config-set agent_skills.gsd-executor '["skills/my-skill"]'
 ```
 
 ---
@@ -334,10 +293,10 @@ Toggle optional capabilities via the `features.*` config namespace. Feature flag
 
 ```bash
 # Enable a feature
-node gsd-tools.cjs config-set features.global_learnings true
+gsd-sdk query config-set features.global_learnings true
 
 # Disable a feature
-node gsd-tools.cjs config-set features.thinking_partner false
+gsd-sdk query config-set features.thinking_partner false
 ```
 
 The `features.*` namespace is a dynamic key pattern — new feature flags can be added without modifying `VALID_CONFIG_KEYS`. Any key matching `features.<name>` is accepted by the config system.
