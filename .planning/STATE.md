@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: 上游持续同步与本地化框架维护
 status: in_progress
-stopped_at: Phase 16 executing — Plan 02 complete, Plan 03 next (WIP replay)
-last_updated: "2026-04-21T13:58:30+08:00"
+stopped_at: Phase 16 complete (PARTIAL PASS) — Phase 17 next (LOC-01/LOC-02 契约漂移修复)
+last_updated: "2026-04-21T15:30:00+08:00"
 last_activity: 2026-04-21
 progress:
   total_phases: 17
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 47
-  completed_plans: 45
-  percent: 89
+  completed_plans: 47
+  percent: 94
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: Phase 16 (Executing)
-Plan: 03 (WIP replay — 将 integration 结果推入主工作树)
-Status: Plan 02 complete, ready for Plan 03
-Last activity: 2026-04-21 — Phase 16 Plan 02 complete (integration worktree clean merge — 68 commits, READY_FOR_REPLAY)
+Phase: Phase 17 (Next)
+Plan: 01 (TBD — sync 后本地化审计与 blocker suite 重验证)
+Status: Phase 16 complete (PARTIAL PASS) — awaiting Phase 17 planning
+Last activity: 2026-04-21 — Phase 16 Plan 03 complete (WIP replay + SHA 核查 + governance 验收，SYNC-07 PASS / SYNC-08 PARTIAL PASS，integration worktree 已清理)
 
-Progress: [██████████░░] 88% (15/17 phases complete)
+Progress: [████████████░] 94% (16/17 phases complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,8 @@ Progress: [██████████░░] 88% (15/17 phases complete)
 
 **Project totals:**
 - Completed milestones: 3 (`v1.0`, `v1.1`, `v1.2`)
-- Completed phases: 15
-- Completed plans: 44
+- Completed phases: 16
+- Completed plans: 47
 
 ## Accumulated Context
 
@@ -63,6 +63,7 @@ Latest locked context:
 - Phase 16-01: CHECKLIST 嵌入实际 SHA-256 基线值（非空格占位），PLAYBOOK 表格化 conflict 策略（zh-CN ours / en/ theirs）
 - Phase 16-02: worktree 使用 detached HEAD（git worktree add HEAD）替代 main，因 main 分支已被主工作树占用；merge 结果等价
 - Phase 16-02: en/ 无冲突且保留本地版本——upstream 无 locales/en/ 目录，本地 en/ 为 Phase 14 新增；integration HEAD a78eeda8c850847d6341387c5c3a62edbb9e6a62 已就绪，Plan 03 可直接 fast-forward
+- Phase 16-03: SYNC-07 PASS（integration worktree 模式全程，主工作树 merge commit 0991995a）；SYNC-08 PARTIAL PASS（受保护文件 11/11 SHA PROTECTED OK，governance/test 契约漂移 blocker_failures=13 / 46 failed 属 T-16-15 accept，移交 Phase 17）；integration worktree gsd-integration-16 已清理
 
 ### Roadmap Evolution
 
@@ -93,6 +94,6 @@ None. v1.3 roadmap 就绪，等待 Phase 16 规划。
 
 ## Session Continuity
 
-Last session: 2026-04-21T13:58:30+08:00
-Stopped at: Phase 16 Plan 02 complete — integration worktree gsd-integration-16 已完成 clean upstream merge（68 commits），integration HEAD a78eeda8，READY_FOR_REPLAY
-Resume with: Execute Phase 16 Plan 03 (16-03-PLAN.md — WIP replay 推入主工作树，SHA 核查与 governance 验收)
+Last session: 2026-04-21T15:30:00+08:00
+Stopped at: Phase 16 complete — Plan 03 done (SYNC-07 PASS / SYNC-08 PARTIAL PASS)，integration worktree 已清理，main HEAD 0991995a，契约漂移（blocker_failures=13，46 failed）移交 Phase 17
+Resume with: Plan Phase 17 (LOC-01/LOC-02 — sync 后本地化审计与 blocker suite 重验证)
