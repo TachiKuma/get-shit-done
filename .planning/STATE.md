@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: ready_for_next_milestone
-stopped_at: v1.2 archived — run $gsd-new-milestone
-last_updated: "2026-04-21T07:43:30+08:00"
+milestone: v1.3
+milestone_name: 上游持续同步与本地化框架维护
+status: defining_requirements
+stopped_at: v1.3 started — defining requirements
+last_updated: "2026-04-21T08:00:00+08:00"
 last_activity: 2026-04-21
 progress:
   total_phases: 15
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** 受支持语言的用户无需频繁回退英文，也能稳定完成 GSD 的阅读、配置、讨论、规划、执行与验证闭环；首批质量承诺为 `en + zh-CN`
-**Current focus:** 规划下一里程碑并决定后续 roadmap
+**Current focus:** v1.3 里程碑——上游 v1.37-v1.38 同步 + 本地化保护 + 上游预检机制
 
 ## Current Position
 
-Phase: No active phase
-Plan: No active plan
-Status: Ready for next milestone definition
-Last activity: 2026-04-21 — archived v1.2 milestone planning artifacts and updated project tracking
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-21 — Milestone v1.3 started
 
-Progress: [██████████] 100%
+Progress: [██████████] 100% (v1.2 complete, v1.3 starting)
 
 ## Performance Metrics
 
@@ -66,11 +66,13 @@ Latest locked context:
 
 ### Pending Todos
 
-- 运行 `$gsd-new-milestone`：启动下一轮 requirements、research 与 roadmap 周期
+- 完成 v1.3 REQUIREMENTS.md 定义
+- 创建 v1.3 ROADMAP.md（Phase 16+）
+- 执行 upstream sync phase
 
 ### Blockers/Concerns
 
-None. v1.2 已完成归档，当前没有未解决的 milestone blocker。
+None. v1.2 已完成归档，v1.3 需求定义中。
 
 ## Deferred Items
 
@@ -82,6 +84,6 @@ None. v1.2 已完成归档，当前没有未解决的 milestone blocker。
 
 ## Session Continuity
 
-Last session: 2026-04-21T07:43:30+08:00
-Stopped at: v1.2 archived — next milestone undefined
-Resume with: `$gsd-new-milestone`
+Last session: 2026-04-21T08:00:00+08:00
+Stopped at: v1.3 milestone started — requirements and roadmap pending
+Resume with: `/gsd-discuss-phase 16`

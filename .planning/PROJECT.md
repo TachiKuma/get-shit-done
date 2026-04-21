@@ -20,9 +20,15 @@ v1.2 已完成并归档，当前项目处于“等待定义下一里程碑”的
 - `get-shit-done/locales/en/claude-skills.json` 当前覆盖最新 `82` 个 Claude installable skills，`zh-CN` 正式承诺范围维持首批 6 个 skills
 - 当前里程碑 focused suite 为 `72 passed / 0 failed`，`node scripts/verify-localization-governance.cjs` 为 `blocker_failures=0, warning_failures=0, deferred=6`
 
-## Next Milestone Goals
+## Current Milestone: v1.3 上游持续同步与本地化框架维护
 
-- 待定义。下一步应通过 `$gsd-new-milestone` 重新收集需求、确定 scope，并决定是否扩展更广的 runtime 或更多 locale 覆盖面。
+**Goal:** 将上游 get-shit-done v1.37-v1.38 的变更完整合并到本地，保护 en + zh-CN 本地化成果，并建立"每次规划前强制上游预检"的可持续机制。
+
+**Target features:**
+- 上游 v1.37-v1.38 完整合并（clean-base sync + WIP replay，延续 Phase 14.1 策略）
+- 本地化文件在 sync 后验收全绿（locale catalog、tests、governance）
+- CLAUDE.md 上游预检强制规则落地（每次 discuss/plan 前必须执行）
+- 刷新受本地化覆盖文件以匹配上游新格式/新 API
 
 <details>
 <summary>Archived Milestone Snapshot: v1.2 working state before close</summary>
@@ -72,9 +78,12 @@ v1.2 已完成并归档，当前项目处于“等待定义下一里程碑”的
 - ✓ SYNC-04 / SYNC-05 / SYNC-06: 受保护的 latest-upstream sync、WIP replay 与 Phase 15 refresh inputs 已在 Phase 14.1 落地 - v1.2
 - ✓ CLD-03 / CLD-04 / QA-05: Claude first-batch zh-CN promised subset、governance blocker 与 install-output regression gate 已在 Phase 15 落地 - v1.2
 
-### Active
+### Active (v1.3)
 
-- (None yet — 下一里程碑需求尚未定义；使用 `$gsd-new-milestone` 重新建模)
+- SYNC-07: 完成 upstream v1.37-v1.38 的 clean-base guarded sync（integration worktree + WIP replay）
+- SYNC-08: 本地化保护验收——sync 后 `locales/`、tests/、governance manifest 全绿
+- SYNC-09: CLAUDE.md 上游预检规则落地，未来每次 discuss/plan 前强制检查上游差距
+- LOC-01: 审计 sync 后受影响的本地化覆盖文件并按需刷新，保持 en + zh-CN contract 一致
 
 ### Out of Scope
 
@@ -154,4 +163,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after v1.2 milestone*
+*Last updated: 2026-04-21 — v1.3 milestone started*
