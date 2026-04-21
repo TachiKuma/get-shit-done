@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: 上游持续同步与本地化框架维护
 status: in_progress
-stopped_at: Phase 16 executing — Wave 1 (Plan 01) complete, Plan 02 next
-last_updated: "2026-04-21T13:52:00+08:00"
+stopped_at: Phase 16 executing — Plan 02 complete, Plan 03 next (WIP replay)
+last_updated: "2026-04-21T13:58:30+08:00"
 last_activity: 2026-04-21
 progress:
   total_phases: 17
   completed_phases: 15
   total_plans: 47
-  completed_plans: 44
-  percent: 88
+  completed_plans: 45
+  percent: 89
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: Phase 16 (Executing)
-Plan: 02 (Wave 1 — integration worktree sync)
-Status: Plan 01 complete, ready for Plan 02
-Last activity: 2026-04-21 — Phase 16 Plan 01 complete (SHA snapshot + playbook)
+Plan: 03 (WIP replay — 将 integration 结果推入主工作树)
+Status: Plan 02 complete, ready for Plan 03
+Last activity: 2026-04-21 — Phase 16 Plan 02 complete (integration worktree clean merge — 68 commits, READY_FOR_REPLAY)
 
 Progress: [██████████░░] 88% (15/17 phases complete)
 
@@ -61,6 +61,8 @@ Latest locked context:
 - v1.3 roadmap 已创建：Phase 16（SYNC-07 + SYNC-08）+ Phase 17（LOC-01 + LOC-02）
 - Phase 16-01: sha256 机读格式段落已加入 WIP-SNAPSHOT，供 Plan 03 自动对比脚本使用（无需人工读 SHA）
 - Phase 16-01: CHECKLIST 嵌入实际 SHA-256 基线值（非空格占位），PLAYBOOK 表格化 conflict 策略（zh-CN ours / en/ theirs）
+- Phase 16-02: worktree 使用 detached HEAD（git worktree add HEAD）替代 main，因 main 分支已被主工作树占用；merge 结果等价
+- Phase 16-02: en/ 无冲突且保留本地版本——upstream 无 locales/en/ 目录，本地 en/ 为 Phase 14 新增；integration HEAD a78eeda8c850847d6341387c5c3a62edbb9e6a62 已就绪，Plan 03 可直接 fast-forward
 
 ### Roadmap Evolution
 
@@ -91,6 +93,6 @@ None. v1.3 roadmap 就绪，等待 Phase 16 规划。
 
 ## Session Continuity
 
-Last session: 2026-04-21T13:52:00+08:00
-Stopped at: Phase 16 Plan 01 complete — WIP-SNAPSHOT, PROTECTION-CHECKLIST, SYNC-PLAYBOOK 已生成并提交
-Resume with: Execute Phase 16 Plan 02 (16-02-PLAN.md — integration worktree sync)
+Last session: 2026-04-21T13:58:30+08:00
+Stopped at: Phase 16 Plan 02 complete — integration worktree gsd-integration-16 已完成 clean upstream merge（68 commits），integration HEAD a78eeda8，READY_FOR_REPLAY
+Resume with: Execute Phase 16 Plan 03 (16-03-PLAN.md — WIP replay 推入主工作树，SHA 核查与 governance 验收)

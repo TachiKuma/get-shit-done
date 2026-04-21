@@ -75,7 +75,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 Plans:
 - [x] 16-01-PLAN.md — 冻结受保护文件 SHA 快照、生成 WIP 保护基线与 sync playbook ✅ 2026-04-21
-- [ ] 16-02-PLAN.md — 在 isolation worktree 执行 clean guarded upstream sync（68 commits）
+- [x] 16-02-PLAN.md — 在 isolation worktree 执行 clean guarded upstream sync（68 commits）✅ 2026-04-21
 - [ ] 16-03-PLAN.md — WIP replay 推入主工作树，SHA 核查与 governance 验收
 
 **UI hint**: no
@@ -122,5 +122,5 @@ Plans:
 | 14. Claude Skills Locale Catalog 架构 | v1.2 | 3/3 | Complete | 2026-04-20 |
 | 14.1 与上游最新源码完全对齐并保护现有多语言进度 | v1.2 | 3/3 | Complete | 2026-04-20 |
 | 15. Claude Skills zh-CN 落地与验收收口 | v1.2 | 3/3 | Complete | 2026-04-21 |
-| 16. 上游 v1.37-v1.38 受保护同步与保护验收 | v1.3 | 1/3 | In progress | - |
+| 16. 上游 v1.37-v1.38 受保护同步与保护验收 | v1.3 | 2/3 | In progress | - |
 | 17. Sync 后本地化文件审计与 blocker suite 重验证 | v1.3 | 0/TBD | Not started | - |
