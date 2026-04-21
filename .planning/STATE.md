@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: 上游持续同步与本地化框架维护
 status: in_progress
-stopped_at: Phase 16 complete (PARTIAL PASS) — Phase 17 next (LOC-01/LOC-02 契约漂移修复)
-last_updated: "2026-04-21T15:30:00+08:00"
+stopped_at: Phase 17 context gathered — ready for planning (2 plans: audit+fix / verification)
+last_updated: "2026-04-21T16:00:00+08:00"
 last_activity: 2026-04-21
 progress:
   total_phases: 17
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: Phase 17 (Next)
-Plan: 01 (TBD — sync 后本地化审计与 blocker suite 重验证)
-Status: Phase 16 complete (PARTIAL PASS) — awaiting Phase 17 planning
-Last activity: 2026-04-21 — Phase 16 Plan 03 complete (WIP replay + SHA 核查 + governance 验收，SYNC-07 PASS / SYNC-08 PARTIAL PASS，integration worktree 已清理)
+Phase: Phase 17 (Planning)
+Plan: TBD — 2 plans: 01 (审计+修复) / 02 (验收)
+Status: Phase 17 context gathered — ready for /gsd-plan-phase 17
+Last activity: 2026-04-21 — Phase 17 CONTEXT.md created (修复方向、INVENTORY 范围、审计记录格式、计划拆分粒度已决策)
 
 Progress: [████████████░] 94% (16/17 phases complete)
 
@@ -74,14 +74,12 @@ Latest locked context:
 
 ### Pending Todos
 
-- 执行 `/gsd-plan-phase 16`
-- 执行 Phase 16（upstream sync）
 - 执行 `/gsd-plan-phase 17`
 - 执行 Phase 17（本地化审计与验证）
 
 ### Blockers/Concerns
 
-None. v1.3 roadmap 就绪，等待 Phase 16 规划。
+None. Phase 17 CONTEXT.md 已就绪，等待规划。
 
 ## Deferred Items
 
@@ -94,6 +92,6 @@ None. v1.3 roadmap 就绪，等待 Phase 16 规划。
 
 ## Session Continuity
 
-Last session: 2026-04-21T15:30:00+08:00
-Stopped at: Phase 16 complete — Plan 03 done (SYNC-07 PASS / SYNC-08 PARTIAL PASS)，integration worktree 已清理，main HEAD 0991995a，契约漂移（blocker_failures=13，46 failed）移交 Phase 17
-Resume with: Plan Phase 17 (LOC-01/LOC-02 — sync 后本地化审计与 blocker suite 重验证)
+Last session: 2026-04-21T16:00:00+08:00
+Stopped at: Phase 17 CONTEXT.md 已创建（5 项决策：修复方向 D-01/D-02、INVENTORY 范围 D-03、审计记录格式 D-04、计划粒度 D-05）
+Resume with: /gsd-plan-phase 17
