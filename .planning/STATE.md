@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: GSD-CN 中文发行版基线
-status: planning
-stopped_at: Phase 19 planning 已落盘 — 等待 execute-phase
-last_updated: "2026-04-23T08:58:39.177Z"
-last_activity: 2026-04-23 — Phase 19 planning completed, research/validation/patterns/plans written
+status: executing
+stopped_at: Phase 19 Plan 02 complete — installer namespace substrate delivered
+last_updated: "2026-04-23T09:19:00Z"
+last_activity: 2026-04-23 — 19-02 installer/runtime namespace isolation complete (51 tests pass)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-23)
 
 ## Current Position
 
-Phase: Phase 19 (PLANNED)
-Plan: 4/4 complete — next step is execute-phase
-Status: ready to execute `GSD-CN` namespace, planning-root, installer, docs, and parity implementation
-Last activity: 2026-04-23 — Phase 19 planning completed, research/validation/patterns/plans written
+Phase: Phase 19 (EXECUTING)
+Plan: 19-02 complete — next is 19-03 (README/docs/help surfaces)
+Status: executing; 19-01 and 19-02 delivered; planning-root substrate + installer namespace isolation complete
+Last activity: 2026-04-23 — 19-02 installer/runtime namespace isolation complete (51 tests pass)
 
-Progress: [████████████ ] 92% (49/53 plans complete)
+Progress: [█████████████ ] 96% (51/53 plans complete)
 
 ## Performance Metrics
 
@@ -63,6 +63,8 @@ Latest locked context:
 - 非用户可见层尽量保持不动，除非为满足共存硬约束不得不改
 - CCB 特化只记录为 deferred roadmap item，不进入当前 milestone scope
 - Phase 19 已拆分为 4 个执行 plans：planning-root substrate、installer namespace、docs/help surfaces、parity/coexistence gate
+- 19-01 (planning-root substrate) 已完成：BRAND_ROOT_MAP + resolvePlanningRootName + SDK 对齐，39 tests pass
+- 19-02 (installer namespace) 已完成：INSTALLER_BRAND_CONFIGS + resolveInstallerBrand + uninstall 隔离，51 tests pass
 
 ### Roadmap Evolution
 
@@ -73,10 +75,8 @@ Latest locked context:
 
 ### Pending Todos
 
-- 执行 `$gsd-execute-phase 19`
-- 落地 `.planning-gsdcn` planning-root substrate
-- 落地 installer/runtime namespace 与同机共存隔离
-- 收口 README/docs/help surfaces 与 parity blocker suite
+- 执行 19-03: README/docs/help surfaces 收口（中文主叙事 + gsdcn 用户入口 + zh-CN 边界说明）
+- 执行 19-04: parity/coexistence regression gate（blocker suite + inventory/manifests 刷新）
 
 ### Blockers/Concerns
 
@@ -95,6 +95,6 @@ Latest locked context:
 
 ## Session Continuity
 
-Last session: 2026-04-23T08:58:39.175Z
-Stopped at: Phase 19 planning 已落盘 — 等待 execute-phase
-Resume with: /gsd-execute-phase 19
+Last session: 2026-04-23T09:19:00Z
+Stopped at: Phase 19 Plan 02 complete — installer namespace substrate delivered
+Resume with: /gsd-execute-phase 19 (continue with 19-03)

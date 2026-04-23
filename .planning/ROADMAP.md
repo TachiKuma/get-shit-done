@@ -86,8 +86,8 @@ Notes:
   6. `19-SPEC.md` 已存在，并足够支持 `/gsd-discuss-phase 19` 继续讨论“如何实现”
 
 **Plans**:
-- [ ] `19-01-PLAN.md` — planning-root substrate：为 `GSD-CN` 建立 `.planning-gsdcn` 状态根，并让 CLI / SDK / workstream / project 路由保持一致
-- [ ] `19-02-PLAN.md` — installer/runtime namespace：落地 `gsdcn` 前缀、安装级命名空间隔离与同机共存
+- [x] `19-01-PLAN.md` — planning-root substrate：为 `GSD-CN` 建立 `.planning-gsdcn` 状态根，并让 CLI / SDK / workstream / project 路由保持一致
+- [x] `19-02-PLAN.md` — installer/runtime namespace：落地 `gsdcn` 前缀、安装级命名空间隔离与同机共存
 - [ ] `19-03-PLAN.md` — README/docs/help surfaces：切换中文主叙事、`gsdcn` 用户入口与第一阶段 `zh-CN` 边界说明
 - [ ] `19-04-PLAN.md` — parity/coexistence regression gate：建立 focused blocker suite，并刷新 inventory/manifests
 
@@ -118,4 +118,4 @@ Notes:
 | 16. 上游 v1.37-v1.38 受保护同步与保护验收 | v1.3 | 3/3 | Complete | 2026-04-21 |
 | 17. Sync 后本地化文件审计与 blocker suite 重验证 | v1.3 | 2/2 | Complete | 2026-04-21 |
 | 18. v1.3 证据链补齐与重新审计 | v1.3 | 0/TBD | Superseded | - |
-| 19. GSD-CN 产品定义与兼容边界锁定 | v2.0 | 1/4 | In Progress|  |
+| 19. GSD-CN 产品定义与兼容边界锁定 | v2.0 | 2/4 | In Progress|  |
