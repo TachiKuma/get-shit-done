@@ -1,5 +1,5 @@
 {
-  "generated": "2026-04-20",
+  "generated": "2026-04-23",
   "families": {
     "agents": [
       "gsd-advisor-researcher",
@@ -110,11 +110,11 @@
       "/gsd-spike",
       "/gsd-spike-wrap-up",
       "/gsd-stats",
+      "/gsd-sync-skills",
       "/gsd-thread",
       "/gsd-ui-phase",
       "/gsd-ui-review",
       "/gsd-ultraplan-phase",
-      "/gsd-sync-skills",
       "/gsd-undo",
       "/gsd-update",
       "/gsd-validate-phase",
@@ -224,6 +224,9 @@
       "git-integration.md",
       "git-planning-commit.md",
       "ios-scaffold.md",
+      "localization-drift-policy.md",
+      "localization-glossary.md",
+      "localization-sync-playbook.md",
       "mandatory-initial-read.md",
       "model-profile-resolution.md",
       "model-profiles.md",
@@ -269,6 +272,7 @@
       "init.cjs",
       "intel.cjs",
       "learnings.cjs",
+      "locale.cjs",
       "milestone.cjs",
       "model-profiles.cjs",
       "phase.cjs",

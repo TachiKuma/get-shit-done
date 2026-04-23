@@ -1,12 +1,13 @@
-# GSD Shipped Surface Inventory
+# GSD-CN Shipped Surface Inventory
 
-> Authoritative roster of every shipped GSD surface: commands, agents, workflows, references, CLI modules, and hooks. Where the broad docs (AGENTS.md, COMMANDS.md, ARCHITECTURE.md, CLI-TOOLS.md) diverge from the filesystem, treat this file and the repository tree itself as the source of truth.
+> Authoritative roster of every shipped GSD-CN surface: commands, agents, workflows, references, CLI modules, and hooks. This project is the GSD-CN Chinese distribution — user-visible surfaces use the `gsdcn-*` command prefix. Where the broad docs (AGENTS.md, COMMANDS.md, ARCHITECTURE.md, CLI-TOOLS.md) diverge from the filesystem, treat this file and the repository tree itself as the source of truth.
 
 ## How To Use This File
 
-- Counts here are derived from the filesystem at the v1.36.0 pin and may drift between releases. For live counts, run `ls commands/gsd/*.md | wc -l`, `ls agents/gsd-*.md | wc -l`, etc. against the checkout.
+- Counts here are derived from the filesystem and may drift between releases. For live counts, run `ls commands/gsd/*.md | wc -l`, `ls agents/gsd-*.md | wc -l`, etc. against the checkout.
 - This file enumerates every shipped surface across all six families (agents, commands, workflows, references, CLI modules, hooks). Broad docs may render narrative or curated subsets; when they disagree with the filesystem, this file and the directory listings are authoritative.
-- New surfaces added after v1.36.0 should land here first, then propagate to the broad docs. The drift-control tests in `tests/inventory-counts.test.cjs`, `tests/commands-doc-parity.test.cjs`, `tests/agents-doc-parity.test.cjs`, `tests/cli-modules-doc-parity.test.cjs`, `tests/hooks-doc-parity.test.cjs`, `tests/architecture-counts.test.cjs`, and `tests/command-count-sync.test.cjs` anchor the counts and roster contents against the filesystem.
+- New surfaces added should land here first, then propagate to the broad docs. The drift-control tests in `tests/inventory-counts.test.cjs`, `tests/commands-doc-parity.test.cjs`, `tests/agents-doc-parity.test.cjs`, `tests/cli-modules-doc-parity.test.cjs`, `tests/hooks-doc-parity.test.cjs`, `tests/architecture-counts.test.cjs`, and `tests/command-count-sync.test.cjs` anchor the counts and roster contents against the filesystem.
+- **GSD-CN Note:** User-visible command entry points use the `gsdcn-*` prefix (e.g., `/gsdcn-new-project`). Internal agent file names (agents/gsd-*.md) retain the canonical `gsd-` prefix. See Phase 19 for the GSD-CN brand namespace contract.
 
 ---
 
@@ -265,7 +266,7 @@ Full roster at `get-shit-done/workflows/*.md`. Workflows are thin orchestrators 
 
 ---
 
-## References (49 shipped)
+## References (52 shipped)
 
 Full roster at `get-shit-done/references/*.md`. References are shared knowledge documents that workflows and agents `@-reference`. The groupings below match [`docs/ARCHITECTURE.md`](ARCHITECTURE.md#references-get-shit-donereferencesmd) — core, workflow, thinking-model clusters, and the modular planner decomposition.
 
@@ -313,6 +314,9 @@ Full roster at `get-shit-done/references/*.md`. References are shared knowledge 
 | `ai-frameworks.md` | AI framework decision-matrix reference for `gsd-framework-selector`. |
 | `executor-examples.md` | Worked examples for the gsd-executor agent. |
 | `doc-conflict-engine.md` | Shared conflict-detection contract for ingest/import workflows. |
+| `localization-drift-policy.md` | Governance policy for handling English-canonical localization drift after source changes. |
+| `localization-glossary.md` | Canonical localization terminology, do-not-translate rules, and review vocabulary. |
+| `localization-sync-playbook.md` | Operational playbook for syncing localized assets against English canonical changes. |
 
 ### Sketch References
 
@@ -349,11 +353,11 @@ The `gsd-planner` agent is decomposed into a core agent plus reference modules t
 | `planner-revision.md` | Plan revision patterns for iterative refinement. |
 | `planner-source-audit.md` | Planner source-audit and authority-limit rules. |
 
-> **Subdirectory:** `get-shit-done/references/few-shot-examples/` contains additional few-shot examples (`plan-checker.md`, `verifier.md`) that are referenced from specific agents. These are not counted in the 49 top-level references.
+> **Subdirectory:** `get-shit-done/references/few-shot-examples/` contains additional few-shot examples (`plan-checker.md`, `verifier.md`) that are referenced from specific agents. These are not counted in the 52 top-level references.
 
 ---
 
-## CLI Modules (26 shipped)
+## CLI Modules (27 shipped)
 
 Full listing: `get-shit-done/bin/lib/*.cjs`.
 
@@ -372,6 +376,7 @@ Full listing: `get-shit-done/bin/lib/*.cjs`.
 | `init.cjs` | Compound context loading for each workflow type |
 | `intel.cjs` | Codebase intel store backing `/gsd-intel` and `gsd-intel-updater` |
 | `learnings.cjs` | Cross-phase learnings extraction for `/gsd-extract-learnings` |
+| `locale.cjs` | Canonical locale normalization, alias resolution, and locale discovery helpers |
 | `milestone.cjs` | Milestone archival, requirements marking |
 | `model-profiles.cjs` | Model profile resolution table (authoritative profile data) |
 | `phase.cjs` | Phase directory operations, decimal numbering, plan indexing |
