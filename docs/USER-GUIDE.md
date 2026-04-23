@@ -1,6 +1,8 @@
-# GSD User Guide
+# GSD-CN 用户指南
 
-A detailed reference for workflows, troubleshooting, and configuration. For quick-start setup, see the [README](../README.md).
+工作流、故障排除与配置的详细参考文档。快速安装说明见 [根 README](../README.md)。
+
+> **关于 GSD-CN：** 本指南适用于 `GSD-CN` 中文发行版，使用 `gsdcn-*` 命令前缀。如需使用官方 GSD，请参阅 [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done)。
 
 ---
 
