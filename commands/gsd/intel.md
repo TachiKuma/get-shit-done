@@ -41,7 +41,7 @@ Intel system is disabled. To activate:
 
   gsd-sdk query config-set intel.enabled true
 
-Then run /gsd-intel refresh to build the initial index.
+Then run /gsdcn-intel refresh to build the initial index.
 ```
 
 ---
@@ -63,7 +63,7 @@ Parse `$ARGUMENTS` to determine the operation mode:
 ```
 GSD > INTEL
 
-Usage: /gsd-intel <mode>
+Usage: /gsdcn-intel <mode>
 
 Modes:
   query <term>  Search intel files for a term
@@ -82,7 +82,7 @@ gsd-sdk query intel.query <term>
 
 Parse the JSON output and display results:
 - If the output contains `"disabled": true`, display the disabled message from Step 1 and **STOP**
-- If no matches found, display: `No intel matches for '<term>'. Try /gsd-intel refresh to build the index.`
+- If no matches found, display: `No intel matches for '<term>'. Try /gsdcn-intel refresh to build the index.`
 - Otherwise, display matching entries grouped by intel file
 
 **STOP** after displaying results. Do not spawn an agent.
@@ -137,7 +137,7 @@ Task(
   prompt="You are the gsd-intel-updater agent. Your job is to analyze this codebase and write/update intelligence files in .planning/intel/.
 
 Project root: ${CWD}
-Prefer: gsd-sdk query <subcommand> (installed gsd-sdk on PATH). Legacy: node $HOME/.claude/get-shit-done/bin/gsd-tools.cjs
+Prefer: gsd-sdk query <subcommand> (installed gsd-sdk on PATH). Legacy: node $HOME/.claude/get-shit-done/bin/gsdcn-tools.cjs
 
 Instructions:
 1. Analyze the codebase structure, dependencies, APIs, and architecture
