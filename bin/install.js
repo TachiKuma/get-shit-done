@@ -4690,14 +4690,18 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   let removedCount = 0;
 
+  // Use brand-aware prefix for all asset discovery so that uninstall only
+  // removes the brand's own assets and never touches the other brand's files.
+  const uninstallCmdPrefix = INSTALLER_BRAND.cmdPrefix + '-';
+
   // 1. Remove GSD commands/skills
   if (isOpencode || isKilo) {
-    // OpenCode/Kilo: remove command/gsd-*.md files
+    // OpenCode/Kilo: remove command/<prefix>-*.md files
     const commandDir = path.join(targetDir, 'command');
     if (fs.existsSync(commandDir)) {
       const files = fs.readdirSync(commandDir);
       for (const file of files) {
-        if (file.startsWith('gsd-') && file.endsWith('.md')) {
+        if (file.startsWith(uninstallCmdPrefix) && file.endsWith('.md')) {
           fs.unlinkSync(path.join(commandDir, file));
           removedCount++;
         }
@@ -4705,13 +4709,13 @@ function uninstall(isGlobal, runtime = 'claude') {
       console.log(`  ${green}✓${reset} Removed GSD commands from command/`);
     }
   } else if (isCodex || isCursor || isWindsurf || isTrae || isCodebuddy) {
-    // Codex/Cursor/Windsurf/Trae/CodeBuddy: remove skills/gsd-*/SKILL.md skill directories
+    // Codex/Cursor/Windsurf/Trae/CodeBuddy: remove skills/<prefix>-*/SKILL.md skill directories
     const skillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(skillsDir)) {
       let skillCount = 0;
       const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('gsd-')) {
+        if (entry.isDirectory() && entry.name.startsWith(uninstallCmdPrefix)) {
           fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
           skillCount++;
         }
@@ -4723,6 +4727,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
 
     // Codex-only: remove GSD agent .toml config files and config.toml sections
+    // Agent .toml filenames always use the canonical 'gsd-' prefix (internal names).
     if (isCodex) {
       const codexAgentsDir = path.join(targetDir, 'agents');
       if (fs.existsSync(codexAgentsDir)) {
@@ -4758,13 +4763,13 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
   } else if (isCopilot) {
-    // Copilot: remove skills/gsd-*/ directories (same layout as Codex skills)
+    // Copilot: remove skills/<prefix>-*/ directories
     const skillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(skillsDir)) {
       let skillCount = 0;
       const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('gsd-')) {
+        if (entry.isDirectory() && entry.name.startsWith(uninstallCmdPrefix)) {
           fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
           skillCount++;
         }
@@ -4791,13 +4796,13 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
   } else if (isAntigravity) {
-    // Antigravity: remove skills/gsd-*/ directories (same layout as Copilot skills)
+    // Antigravity: remove skills/<prefix>-*/ directories
     const skillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(skillsDir)) {
       let skillCount = 0;
       const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('gsd-')) {
+        if (entry.isDirectory() && entry.name.startsWith(uninstallCmdPrefix)) {
           fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
           skillCount++;
         }
@@ -4813,7 +4818,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       let skillCount = 0;
       const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('gsd-')) {
+        if (entry.isDirectory() && entry.name.startsWith(uninstallCmdPrefix)) {
           fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
           skillCount++;
         }
@@ -4858,13 +4863,13 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
   } else if (isGlobal) {
-    // Claude Code global: remove skills/gsd-*/ directories (primary global install location)
+    // Claude Code global: remove skills/<prefix>-*/ directories (primary global install location)
     const skillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(skillsDir)) {
       let skillCount = 0;
       const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.startsWith('gsd-')) {
+        if (entry.isDirectory() && entry.name.startsWith(uninstallCmdPrefix)) {
           fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
           skillCount++;
         }
