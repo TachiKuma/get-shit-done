@@ -25,7 +25,7 @@ import {
   DEFAULT_TRUNCATION_OPTIONS,
   type TruncationOptions,
 } from './context-truncation.js';
-import { relPlanningPath } from './workstream-utils.js';
+import { relPlanningPath, type GsdbrandId } from './workstream-utils.js';
 
 // ─── File manifest per phase ─────────────────────────────────────────────────
 
@@ -83,8 +83,21 @@ export class ContextEngine {
   private readonly logger?: GSDLogger;
   private readonly truncation: TruncationOptions;
 
-  constructor(projectDir: string, logger?: GSDLogger, truncation?: Partial<TruncationOptions>, workstream?: string) {
-    this.planningDir = join(projectDir, relPlanningPath(workstream));
+  /**
+   * @param projectDir - absolute path to the project root
+   * @param logger - optional structured logger
+   * @param truncation - optional truncation overrides
+   * @param workstream - optional workstream name (routes to `<root>/workstreams/<name>/`)
+   * @param brand - optional brand identifier ('official' or 'gsdcn'); falls back to GSD_BRAND env var
+   *
+   * The brand parameter determines which planning root directory is used:
+   * - 'official' (default): `.planning/`
+   * - 'gsdcn':              `.planning-gsdcn/`
+   *
+   * This matches the brand-aware resolution in `planningDir()` / `planningRoot()` in core.cjs.
+   */
+  constructor(projectDir: string, logger?: GSDLogger, truncation?: Partial<TruncationOptions>, workstream?: string, brand?: GsdbrandId | string) {
+    this.planningDir = join(projectDir, relPlanningPath(workstream, brand));
     this.logger = logger;
     this.truncation = { ...DEFAULT_TRUNCATION_OPTIONS, ...truncation };
   }
