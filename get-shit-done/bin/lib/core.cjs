@@ -89,17 +89,23 @@ function findProjectRoot(startDir) {
   const root = path.parse(resolved).root;
   const homedir = require('os').homedir();
 
-  // If startDir already contains .planning/, it IS the project root.
-  // Do not walk up to a parent workspace that also has .planning/ (#1362).
-  const ownPlanning = path.join(resolved, '.planning');
-  if (fs.existsSync(ownPlanning) && fs.statSync(ownPlanning).isDirectory()) {
-    return startDir;
+  // All known planning root directory names (official + all brands).
+  // Order matters: official is checked first so existing projects are not disrupted.
+  const ALL_PLANNING_ROOTS = Object.values(BRAND_ROOT_MAP);
+
+  // If startDir already contains any known planning root, it IS the project root.
+  // Do not walk up to a parent workspace that also has a planning root (#1362).
+  for (const rootName of ALL_PLANNING_ROOTS) {
+    const ownPlanning = path.join(resolved, rootName);
+    if (fs.existsSync(ownPlanning) && fs.statSync(ownPlanning).isDirectory()) {
+      return startDir;
+    }
   }
 
   // Check if startDir or any of its ancestors (up to AND including the
   // candidate project root) contains a .git directory. This handles both
   // `backend/` (direct sub-repo) and `backend/src/modules/` (nested inside),
-  // as well as the common case where .git lives at the same level as .planning/.
+  // as well as the common case where .git lives at the same level as the planning root.
   function isInsideGitRepo(candidateParent) {
     let d = resolved;
     while (d !== root) {
@@ -116,33 +122,40 @@ function findProjectRoot(startDir) {
     if (parent === dir) break; // filesystem root
     if (parent === homedir) break; // never go above home
 
-    const parentPlanning = path.join(parent, '.planning');
-    if (fs.existsSync(parentPlanning) && fs.statSync(parentPlanning).isDirectory()) {
-      const configPath = path.join(parentPlanning, 'config.json');
-      try {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        const subRepos = config.sub_repos || config.planning?.sub_repos || [];
+    // Check all known planning root names in the parent directory.
+    // The first match found wins (official '.planning' is first in BRAND_ROOT_MAP).
+    for (const rootName of ALL_PLANNING_ROOTS) {
+      const parentPlanning = path.join(parent, rootName);
+      if (fs.existsSync(parentPlanning) && fs.statSync(parentPlanning).isDirectory()) {
+        const configPath = path.join(parentPlanning, 'config.json');
+        try {
+          const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          const subRepos = config.sub_repos || config.planning?.sub_repos || [];
 
-        // Check explicit sub_repos list
-        if (Array.isArray(subRepos) && subRepos.length > 0) {
-          const relPath = path.relative(parent, resolved);
-          const topSegment = relPath.split(path.sep)[0];
-          if (subRepos.includes(topSegment)) {
+          // Check explicit sub_repos list
+          if (Array.isArray(subRepos) && subRepos.length > 0) {
+            const relPath = path.relative(parent, resolved);
+            const topSegment = relPath.split(path.sep)[0];
+            if (subRepos.includes(topSegment)) {
+              return parent;
+            }
+          }
+
+          // Check legacy multiRepo flag
+          if (config.multiRepo === true && isInsideGitRepo(parent)) {
             return parent;
           }
+        } catch {
+          // config.json missing or malformed — fall back to .git heuristic
         }
 
-        // Check legacy multiRepo flag
-        if (config.multiRepo === true && isInsideGitRepo(parent)) {
+        // Heuristic: parent has a planning root and we're inside a git repo
+        if (isInsideGitRepo(parent)) {
           return parent;
         }
-      } catch {
-        // config.json missing or malformed — fall back to .git heuristic
-      }
-
-      // Heuristic: parent has .planning/ and we're inside a git repo
-      if (isInsideGitRepo(parent)) {
-        return parent;
+        // Found a planning root name in parent but it didn't match — stop checking other names
+        // in this parent to avoid false positives from both roots existing in the same dir.
+        break;
       }
     }
     dir = parent;
@@ -580,17 +593,51 @@ function execGit(cwd, args) {
   };
 }
 
+// ─── Brand-aware planning root ────────────────────────────────────────────────
+
+/**
+ * Brand identifiers for GSD planning root resolution.
+ *
+ * - 'official' (default): uses '.planning' — standard upstream GSD behavior, unchanged.
+ * - 'gsdcn': uses '.planning-gsdcn' — the GSD-CN Chinese distribution's isolated state root.
+ *
+ * Brand is resolved in this priority order:
+ * 1. Explicit `brand` argument passed to `resolvePlanningRootName()`
+ * 2. GSD_BRAND environment variable
+ * 3. Falls back to 'official' (no change to existing behavior)
+ *
+ * This is the single source of truth for the brand→directory mapping.
+ * CLI (`planningDir`, `planningRoot`) and SDK (`relPlanningPath`, `ContextEngine`)
+ * both import this mapping so divergence is impossible.
+ */
+const BRAND_ROOT_MAP = {
+  official: '.planning',
+  gsdcn: '.planning-gsdcn',
+};
+
+/**
+ * Resolve the planning root directory name for a given brand.
+ *
+ * @param {'official'|'gsdcn'|undefined} brand - explicit brand; falls back to GSD_BRAND env var
+ * @returns {'.planning'|'.planning-gsdcn'} the root directory name (not an absolute path)
+ */
+function resolvePlanningRootName(brand) {
+  const resolved = brand || process.env.GSD_BRAND || 'official';
+  return BRAND_ROOT_MAP[resolved] || BRAND_ROOT_MAP.official;
+}
+
 // ─── Common path helpers ──────────────────────────────────────────────────────
 
 /**
  * Resolve the main worktree root when running inside a git worktree.
- * In a linked worktree, .planning/ lives in the main worktree, not in the linked one.
+ * In a linked worktree, the planning root lives in the main worktree, not in the linked one.
  * Returns the main worktree path, or cwd if not in a worktree.
  */
 function resolveWorktreeRoot(cwd) {
-  // If the current directory already has its own .planning/, respect it.
+  // If the current directory already has its own planning root (any brand), respect it.
   // This handles linked worktrees with independent planning state (e.g., Conductor workspaces).
-  if (fs.existsSync(path.join(cwd, '.planning'))) {
+  const allRootNames = Object.values(BRAND_ROOT_MAP);
+  if (allRootNames.some(name => fs.existsSync(path.join(cwd, name)))) {
     return cwd;
   }
 
@@ -781,7 +828,34 @@ function withPlanningLock(cwd, fn) {
  * @param {string} [ws] - explicit workstream name; if omitted, checks GSD_WORKSTREAM env var
  * @param {string} [project] - explicit project name; if omitted, checks GSD_PROJECT env var
  */
-function planningDir(cwd, ws, project) {
+/**
+ * Get the .planning directory path, project- and workstream-aware.
+ *
+ * Resolution order:
+ * 1. If GSD_PROJECT is set (env var or explicit `project` arg), routes to
+ *    `<root>/{project}/` — supports multi-project workspaces where several
+ *    independent projects share a single planning root directory.
+ * 2. If GSD_WORKSTREAM is set, routes to `<root>/workstreams/{ws}/`.
+ * 3. Otherwise returns `<root>/`.
+ *
+ * The root directory itself is brand-aware:
+ * - Official GSD (default): `.planning`
+ * - GSD-CN: `.planning-gsdcn`
+ *
+ * Brand resolution order (see `resolvePlanningRootName`):
+ * 1. Explicit `brand` argument (4th positional arg)
+ * 2. GSD_BRAND environment variable
+ * 3. Falls back to 'official' → `.planning`
+ *
+ * GSD_PROJECT and GSD_WORKSTREAM can be combined:
+ *   `<root>/{project}/workstreams/{ws}/`
+ *
+ * @param {string} cwd - project root
+ * @param {string} [ws] - explicit workstream name; if omitted, checks GSD_WORKSTREAM env var
+ * @param {string} [project] - explicit project name; if omitted, checks GSD_PROJECT env var
+ * @param {'official'|'gsdcn'|undefined} [brand] - explicit brand; if omitted, checks GSD_BRAND env var
+ */
+function planningDir(cwd, ws, project, brand) {
   if (project === undefined) project = process.env.GSD_PROJECT || null;
   if (ws === undefined) ws = process.env.GSD_WORKSTREAM || null;
 
@@ -794,15 +868,26 @@ function planningDir(cwd, ws, project) {
     throw new Error(`GSD_WORKSTREAM contains invalid path characters: ${ws}`);
   }
 
-  let base = path.join(cwd, '.planning');
+  // Brand-aware root: '.planning' for official GSD, '.planning-gsdcn' for GSD-CN
+  const rootName = resolvePlanningRootName(brand);
+  let base = path.join(cwd, rootName);
   if (project) base = path.join(base, project);
   if (ws) base = path.join(base, 'workstreams', ws);
   return base;
 }
 
-/** Always returns the root .planning/ path, ignoring workstreams and projects. For shared resources. */
-function planningRoot(cwd) {
-  return path.join(cwd, '.planning');
+/**
+ * Always returns the root planning directory path, ignoring workstreams and projects.
+ * For shared resources (e.g., lock files, session-scoped pointers).
+ *
+ * Brand-aware: returns `.planning` for official GSD, `.planning-gsdcn` for GSD-CN.
+ *
+ * @param {string} cwd - project root
+ * @param {'official'|'gsdcn'|undefined} [brand] - explicit brand; if omitted, checks GSD_BRAND
+ */
+function planningRoot(cwd, brand) {
+  const rootName = resolvePlanningRootName(brand);
+  return path.join(cwd, rootName);
 }
 
 /**
@@ -1792,4 +1877,7 @@ module.exports = {
   atomicWriteFileSync,
   timeAgo,
   pruneOrphanedWorktrees,
+  // Brand-aware planning root API
+  BRAND_ROOT_MAP,
+  resolvePlanningRootName,
 };
