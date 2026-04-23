@@ -3,26 +3,26 @@
 **Defined:** 2026-04-23
 **Last updated:** 2026-04-23
 **Milestone:** v2.0 GSD-CN 中文发行版基线
-**Status:** Planning complete; ready for execute-phase
+**Status:** Phase 19 complete; all 7 requirements covered
 **Core Value:** 中文用户可以直接使用默认简体中文的 `GSD-CN`，同时保持与上游 GSD 的行为一致性和共存能力
 
 ## v2.0 Requirements
 
 ### Product Identity
 
-- [ ] **CN-01**: 项目必须以 `GSD-CN` 作为唯一主线定位，对外明确表述为上游 `get-shit-done` 的非官方简体中文发行版
+- [x] **CN-01**: 项目必须以 `GSD-CN` 作为唯一主线定位，对外明确表述为上游 `get-shit-done` 的非官方简体中文发行版
   - **Current:** `.planning` 主线仍保留大量“多语言本地化框架”叙事
   - **Target:** 活跃规划、README 方向与后续 phase 均以 `GSD-CN` 中文发行版定位展开
   - **Acceptance:** 活跃 `.planning` 文档存在一致的 `GSD-CN` 主线表述，且不再把“多语言本地化框架”作为当前唯一目标
 
-- [ ] **CN-02**: 第一阶段只承诺 `zh-CN` 中文发行版，其他语言支持必须明确延后
+- [x] **CN-02**: 第一阶段只承诺 `zh-CN` 中文发行版，其他语言支持必须明确延后
   - **Current:** 历史文档仍围绕 `en + zh-CN` 与其他 locale 的框架性治理展开
   - **Target:** 活跃 requirements、roadmap 与后续 phase 明确把 `zh-CN` 作为第一阶段唯一发行承诺
   - **Acceptance:** 活跃规划文档中对 `ja-JP` / `ko-KR` / `pt-BR` 的支持均被标记为 deferred 或 out of scope
 
 ### Namespace and Surface
 
-- [ ] **CN-03**: 所有用户可见入口必须统一切换到 `gsdcn` 前缀
+- [x] **CN-03**: 所有用户可见入口必须统一切换到 `gsdcn` 前缀
   - **Current:** 用户可见入口仍以 `gsd-*` / `$gsd-*` 为主
   - **Target:** 命令、skills、workflows、tools、安装入口、文档示例与生成产物引用全部采用 `gsdcn` 前缀
   - **Acceptance:** Phase 验收时存在完整的用户可见入口清单，并确认上述表面全部已迁移到 `gsdcn` 前缀
@@ -46,7 +46,7 @@
 
 ### Delivery
 
-- [ ] **CN-07**: 第一阶段必须提供独立于官方原版的中文安装方式与差异说明
+- [x] **CN-07**: 第一阶段必须提供独立于官方原版的中文安装方式与差异说明
   - **Current:** 尚未定义 `GSD-CN` 的独立安装入口与中文 README 差异说明结构
   - **Target:** 用户可以基于中文文档完成安装，并清楚理解 `GSD-CN` 与官方原版的关系、差异与兼容边界
   - **Acceptance:** 活跃规划明确包含独立安装方式与 `README.md` 差异说明作为交付物
@@ -67,18 +67,18 @@
 
 | Requirement | Planned Phase | Status |
 |-------------|---------------|--------|
-| CN-01 | Phase 19+ | Pending |
-| CN-02 | Phase 19+ | Pending |
-| CN-03 | Phase 19+ | Partial (installer prefix substrate done; docs/help in 19-03) |
-| CN-04 | Phase 19+ | Complete |
-| CN-05 | Phase 19+ | Complete |
-| CN-06 | Phase 19+ | Complete |
-| CN-07 | Phase 19+ | Pending |
+| CN-01 | Phase 19 | Complete |
+| CN-02 | Phase 19 | Complete |
+| CN-03 | Phase 19 | Complete |
+| CN-04 | Phase 19 | Complete |
+| CN-05 | Phase 19 | Complete |
+| CN-06 | Phase 19 | Complete |
+| CN-07 | Phase 19 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 7 total
-- Complete: 0
-- Pending: 7
+- Complete: 7
+- Pending: 0
 
 ## Notes on Changed Requirements
 
