@@ -249,10 +249,8 @@ GSD-CN 设计为可与官方 GSD 同机共存：
 
 同一工作区中，直接通过命令前缀区分调用：
 
-```bash
-/gsd-help       # 使用官方 GSD
-/gsdcn-help     # 使用 GSD-CN 中文发行版
-```
+- 官方 GSD：使用 `gsd` 系列命令（以 `gsd-` 为前缀的 skill/tool）
+- GSD-CN：使用 `/gsdcn-help`、`/gsdcn-progress` 等 `gsdcn` 前缀命令
 
 ---
 
