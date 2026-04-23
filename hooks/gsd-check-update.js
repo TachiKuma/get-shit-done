@@ -29,11 +29,20 @@ function detectConfigDir(baseDir) {
 
 const globalConfigDir = detectConfigDir(homeDir);
 const projectConfigDir = detectConfigDir(cwd);
+
+// Brand-aware cache directory so that official GSD and GSD-CN can coexist on
+// the same machine without overwriting each other's update-check state (CN-04).
+// Installer sets GSD_BRAND=gsdcn when registering the hook for a GSD-CN install;
+// official GSD installs leave GSD_BRAND unset (defaults to 'gsd' namespace).
+const _brand = (process.env.GSD_BRAND || '').toLowerCase().trim();
+const _cacheDirName = _brand === 'gsdcn' ? 'gsdcn' : 'gsd';
+const _cacheFileName = _brand === 'gsdcn' ? 'gsdcn-update-check.json' : 'gsd-update-check.json';
+
 // Use a shared, tool-agnostic cache directory to avoid multi-runtime
 // resolution mismatches where check-update writes to one runtime's cache
 // but statusline reads from another (#1421).
-const cacheDir = path.join(homeDir, '.cache', 'gsd');
-const cacheFile = path.join(cacheDir, 'gsd-update-check.json');
+const cacheDir = path.join(homeDir, '.cache', _cacheDirName);
+const cacheFile = path.join(cacheDir, _cacheFileName);
 
 // VERSION file locations (check project first, then global)
 const projectVersionFile = path.join(projectConfigDir, 'get-shit-done', 'VERSION');

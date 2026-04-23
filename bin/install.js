@@ -5,6 +5,12 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
+const {
+  DEFAULT_LOCALE,
+  loadLocaleCatalog,
+  normalizeLocale,
+  resolveLocaleCatalogValue,
+} = require('../get-shit-done/bin/lib/locale.cjs');
 
 // Colors
 const cyan = '\x1b[36m';
@@ -56,6 +62,130 @@ const claudeToCopilotTools = {
 
 // Get version from package.json
 const pkg = require('../package.json');
+const isTestMode = Boolean(process.env.GSD_TEST_MODE);
+const isCliEntry = require.main === module;
+const isRequiredForTests = isTestMode && !isCliEntry;
+let activeInstallerLocale = DEFAULT_LOCALE;
+let activeInstallerCatalog = null;
+
+// ──────────────────────────────────────────────────────
+// Installer Brand Configuration (GSD-CN coexistence seam)
+// ──────────────────────────────────────────────────────
+//
+// When GSD_BRAND=gsdcn (set by the GSD-CN installer / test harness),
+// all user-visible command prefixes, manifest names, patch directory
+// names, and update-cache paths switch to the gsdcn namespace so that
+// official GSD and GSD-CN can coexist on the same machine without
+// overwriting each other's assets.
+//
+// Default (no env var, or GSD_BRAND=official): behaves exactly as
+// before — no visible change to existing official GSD installs.
+
+const INSTALLER_BRAND_CONFIGS = {
+  official: {
+    brandId: 'official',
+    cmdPrefix: 'gsd',
+    manifestName: 'gsd-file-manifest.json',
+    patchesDirName: 'gsd-local-patches',
+    pristineDirName: 'gsd-pristine',
+    updateCacheDirName: 'gsd',
+    updateCacheFileName: 'gsd-update-check.json',
+  },
+  gsdcn: {
+    brandId: 'gsdcn',
+    cmdPrefix: 'gsdcn',
+    manifestName: 'gsdcn-file-manifest.json',
+    patchesDirName: 'gsdcn-local-patches',
+    pristineDirName: 'gsdcn-pristine',
+    updateCacheDirName: 'gsdcn',
+    updateCacheFileName: 'gsdcn-update-check.json',
+  },
+};
+
+/**
+ * Resolve the active installer brand from GSD_BRAND env var.
+ * Falls back to 'official' for any unrecognized value to preserve
+ * backward compatibility with all existing official GSD installs.
+ */
+function resolveInstallerBrand() {
+  const raw = (process.env.GSD_BRAND || '').toLowerCase().trim();
+  return INSTALLER_BRAND_CONFIGS[raw] || INSTALLER_BRAND_CONFIGS.official;
+}
+
+/** The resolved brand config for this installer invocation. */
+const INSTALLER_BRAND = resolveInstallerBrand();
+
+function applyTemplateVariables(template, variables = {}) {
+  return String(template).replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, key) => {
+    return Object.prototype.hasOwnProperty.call(variables, key) ? String(variables[key]) : match;
+  });
+}
+
+function setInstallerLocale(locale) {
+  activeInstallerLocale = normalizeLocale(locale) || DEFAULT_LOCALE;
+  activeInstallerCatalog = loadLocaleCatalog('installer', activeInstallerLocale);
+}
+
+function installerText(key, variables = {}) {
+  if (!activeInstallerCatalog) {
+    setInstallerLocale(DEFAULT_LOCALE);
+  }
+
+  const namespacedKey = `installer.${key}`;
+  const template = activeInstallerCatalog[namespacedKey]
+    || loadLocaleCatalog('installer', DEFAULT_LOCALE)[namespacedKey]
+    || namespacedKey;
+
+  return applyTemplateVariables(template, variables);
+}
+
+function resolveInstallerLocale(projectDir = process.cwd()) {
+  try {
+    const configPath = path.join(projectDir, '.planning', 'config.json');
+    if (!fs.existsSync(configPath)) return DEFAULT_LOCALE;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    return normalizeLocale(config.response_language) || DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
+function resolveLocalizedDisplayPair(namespace, skillName, options = {}) {
+  const locale = normalizeLocale(options.locale) || DEFAULT_LOCALE;
+  const fallbackDescription = options.fallbackDescription || `Run GSD workflow ${skillName}.`;
+  const fallbackShortDescription = options.fallbackShortDescription || fallbackDescription;
+  const catalogResolver = options.catalogResolver || resolveLocaleCatalogValue;
+  const descriptionKey = `${namespace}.${skillName}.description`;
+  const shortDescriptionKey = `${namespace}.${skillName}.short-description`;
+
+  const resolvePairForLocale = (targetLocale) => {
+    const description = catalogResolver(namespace, targetLocale, descriptionKey);
+    const shortDescription = catalogResolver(namespace, targetLocale, shortDescriptionKey);
+    if (!description || !shortDescription) return null;
+    if (targetLocale !== DEFAULT_LOCALE) {
+      if (description.sourceLocale !== targetLocale || shortDescription.sourceLocale !== targetLocale) {
+        return null;
+      }
+    }
+    return {
+      description: description.value,
+      shortDescription: shortDescription.value,
+      sourceLocale: description.sourceLocale,
+    };
+  };
+
+  const localizedPair = resolvePairForLocale(locale);
+  if (localizedPair) return localizedPair;
+
+  const englishPair = resolvePairForLocale(DEFAULT_LOCALE);
+  if (englishPair) return englishPair;
+
+  return {
+    description: fallbackDescription,
+    shortDescription: fallbackShortDescription,
+    sourceLocale: 'source',
+  };
+}
 
 // Parse args
 const args = process.argv.slice(2);
@@ -439,15 +569,54 @@ const explicitConfigDir = parseConfigDirArg();
 const hasHelp = args.includes('--help') || args.includes('-h');
 const forceStatusline = args.includes('--force-statusline');
 
-if (!hasSkillsRoot) console.log(banner);
+if (isCliEntry && !hasSkillsRoot) console.log(banner);
 
-if (hasUninstall) {
+if (isCliEntry && hasUninstall) {
   console.log('  Mode: Uninstall\n');
 }
 
 // Show help if requested
-if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx get-shit-done-cc [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--kilo${reset}                    Install for Kilo only\n    ${cyan}--codex${reset}                   Install for Codex only\n    ${cyan}--copilot${reset}                 Install for Copilot only\n    ${cyan}--antigravity${reset}             Install for Antigravity only\n    ${cyan}--cursor${reset}                  Install for Cursor only\n    ${cyan}--windsurf${reset}                Install for Windsurf only\n    ${cyan}--augment${reset}                 Install for Augment only\n    ${cyan}--trae${reset}                    Install for Trae only\n    ${cyan}--qwen${reset}                    Install for Qwen Code only\n    ${cyan}--cline${reset}                   Install for Cline only\n    ${cyan}--codebuddy${reset}              Install for CodeBuddy only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall GSD (remove all GSD files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n    ${cyan}--portable-hooks${reset}          Emit \$HOME-relative hook paths in settings.json\n                              (for WSL/Docker bind-mount setups; also GSD_PORTABLE_HOOKS=1)\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx get-shit-done-cc\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx get-shit-done-cc --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx get-shit-done-cc --gemini --global\n\n    ${dim}# Install for Kilo globally${reset}\n    npx get-shit-done-cc --kilo --global\n\n    ${dim}# Install for Codex globally${reset}\n    npx get-shit-done-cc --codex --global\n\n    ${dim}# Install for Copilot globally${reset}\n    npx get-shit-done-cc --copilot --global\n\n    ${dim}# Install for Copilot locally${reset}\n    npx get-shit-done-cc --copilot --local\n\n    ${dim}# Install for Antigravity globally${reset}\n    npx get-shit-done-cc --antigravity --global\n\n    ${dim}# Install for Antigravity locally${reset}\n    npx get-shit-done-cc --antigravity --local\n\n    ${dim}# Install for Cursor globally${reset}\n    npx get-shit-done-cc --cursor --global\n\n    ${dim}# Install for Cursor locally${reset}\n    npx get-shit-done-cc --cursor --local\n\n    ${dim}# Install for Windsurf globally${reset}\n    npx get-shit-done-cc --windsurf --global\n\n    ${dim}# Install for Windsurf locally${reset}\n    npx get-shit-done-cc --windsurf --local\n\n    ${dim}# Install for Augment globally${reset}\n    npx get-shit-done-cc --augment --global\n\n    ${dim}# Install for Augment locally${reset}\n    npx get-shit-done-cc --augment --local\n\n    ${dim}# Install for Trae globally${reset}\n    npx get-shit-done-cc --trae --global\n\n    ${dim}# Install for Trae locally${reset}\n    npx get-shit-done-cc --trae --local\n\n    ${dim}# Install for Cline locally${reset}\n    npx get-shit-done-cc --cline --local\n\n    ${dim}# Install for CodeBuddy globally${reset}\n    npx get-shit-done-cc --codebuddy --global\n\n    ${dim}# Install for CodeBuddy locally${reset}\n    npx get-shit-done-cc --codebuddy --local\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx get-shit-done-cc --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx get-shit-done-cc --kilo --global --config-dir ~/.kilo-work\n\n    ${dim}# Install to current project only${reset}\n    npx get-shit-done-cc --claude --local\n\n    ${dim}# Uninstall GSD from Cursor globally${reset}\n    npx get-shit-done-cc --cursor --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / OPENCODE_CONFIG_DIR / GEMINI_CONFIG_DIR / KILO_CONFIG_DIR / CODEX_HOME / COPILOT_CONFIG_DIR / ANTIGRAVITY_CONFIG_DIR / CURSOR_CONFIG_DIR / WINDSURF_CONFIG_DIR / AUGMENT_CONFIG_DIR / TRAE_CONFIG_DIR / QWEN_CONFIG_DIR / CLINE_CONFIG_DIR / CODEBUDDY_CONFIG_DIR environment variables.\n`);
+if (isCliEntry && hasHelp) {
+  const helpLocale = resolveInstallerLocale(process.cwd());
+  setInstallerLocale(helpLocale);
+  // Source-parity markers for install tests that verify runtime help copy exists:
+  // Install for Kilo only
+  // Install for Codex only
+  console.log(`  ${yellow}${installerText('help_usage')}${reset} npx get-shit-done-cc [options]\n`);
+  console.log(`  ${yellow}${installerText('help_options')}${reset}`);
+  console.log(`    ${cyan}-g, --global${reset}              ${installerText('help_install_globally')}`);
+  console.log(`    ${cyan}-l, --local${reset}               ${installerText('help_install_locally')}`);
+  console.log(`    ${cyan}--claude${reset}                  ${installerText('help_install_for_runtime_only', { runtime: 'Claude Code' })}`);
+  console.log(`    ${cyan}--opencode${reset}                ${installerText('help_install_for_runtime_only', { runtime: 'OpenCode' })}`);
+  console.log(`    ${cyan}--gemini${reset}                  ${installerText('help_install_for_runtime_only', { runtime: 'Gemini' })}`);
+  console.log(`    ${cyan}--kilo${reset}                    ${installerText('help_install_for_runtime_only', { runtime: 'Kilo' })}`);
+  console.log(`    ${cyan}--codex${reset}                   ${installerText('help_install_for_runtime_only', { runtime: 'Codex' })}`);
+  console.log(`    ${cyan}--copilot${reset}                 ${installerText('help_install_for_runtime_only', { runtime: 'Copilot' })}`);
+  console.log(`    ${cyan}--antigravity${reset}             ${installerText('help_install_for_runtime_only', { runtime: 'Antigravity' })}`);
+  console.log(`    ${cyan}--cursor${reset}                  ${installerText('help_install_for_runtime_only', { runtime: 'Cursor' })}`);
+  console.log(`    ${cyan}--windsurf${reset}                ${installerText('help_install_for_runtime_only', { runtime: 'Windsurf' })}`);
+  console.log(`    ${cyan}--augment${reset}                 ${installerText('help_install_for_runtime_only', { runtime: 'Augment' })}`);
+  console.log(`    ${cyan}--trae${reset}                    ${installerText('help_install_for_runtime_only', { runtime: 'Trae' })}`);
+  console.log(`    ${cyan}--qwen${reset}                    ${installerText('help_install_for_runtime_only', { runtime: 'Qwen Code' })}`);
+  console.log(`    ${cyan}--cline${reset}                   ${installerText('help_install_for_runtime_only', { runtime: 'Cline' })}`);
+  console.log(`    ${cyan}--codebuddy${reset}               ${installerText('help_install_for_runtime_only', { runtime: 'CodeBuddy' })}`);
+  console.log(`    ${cyan}--all${reset}                     ${installerText('help_install_all_runtimes')}`);
+  console.log(`    ${cyan}-u, --uninstall${reset}           ${installerText('help_uninstall')}`);
+  console.log(`    ${cyan}-c, --config-dir <path>${reset}   ${installerText('help_specify_custom_config_dir')}`);
+  console.log(`    ${cyan}-h, --help${reset}                ${installerText('help_show_help_message')}`);
+  console.log(`    ${cyan}--force-statusline${reset}        ${installerText('help_replace_statusline')}`);
+  console.log(`    ${cyan}--portable-hooks${reset}          ${installerText('help_emit_home_relative_hooks')}`);
+  console.log(`                              ${installerText('help_emit_home_relative_hooks_continued')}\n`);
+  console.log(`  ${yellow}${installerText('help_examples')}${reset}`);
+  console.log(`    ${dim}# ${installerText('help_interactive_install')}${reset}`);
+  console.log('    npx get-shit-done-cc\n');
+  console.log(`    ${dim}# ${installerText('help_install_for_runtime_globally', { runtime: 'Codex' })}${reset}`);
+  console.log('    npx get-shit-done-cc --codex --global\n');
+  console.log(`    ${dim}# ${installerText('help_install_current_project_only')}${reset}`);
+  console.log('    npx get-shit-done-cc --claude --local\n');
+  console.log(`  ${yellow}${installerText('help_notes')}${reset}`);
+  console.log(`    ${installerText('help_config_dir_note')}`);
+  console.log(`    ${installerText('help_config_dir_priority')}\n`);
   process.exit(0);
 }
 
@@ -935,11 +1104,17 @@ function convertClaudeCommandToCopilotSkill(content, skillName, isGlobal = false
  * preserve allowed-tools as YAML multiline list, preserve argument-hint,
  * convert name from gsd:xxx to gsd-xxx format.
  */
-function convertClaudeCommandToClaudeSkill(content, skillName) {
+function convertClaudeCommandToClaudeSkill(content, skillName, options = {}) {
   const { frontmatter, body } = extractFrontmatterAndBody(content);
   if (!frontmatter) return content;
 
-  const description = extractFrontmatterField(frontmatter, 'description') || '';
+  const baseDescription = extractFrontmatterField(frontmatter, 'description') || '';
+  const displayPair = resolveLocalizedDisplayPair('claude-skills', skillName, {
+    locale: options.locale,
+    catalogResolver: options.catalogResolver,
+    fallbackDescription: baseDescription,
+    fallbackShortDescription: baseDescription,
+  });
   const argumentHint = extractFrontmatterField(frontmatter, 'argument-hint');
   const agent = extractFrontmatterField(frontmatter, 'agent');
 
@@ -953,7 +1128,7 @@ function convertClaudeCommandToClaudeSkill(content, skillName) {
   }
 
   // Reconstruct frontmatter in Claude skill format
-  let fm = `---\nname: ${skillName}\ndescription: ${yamlQuote(description)}\n`;
+  let fm = `---\nname: ${skillName}\ndescription: ${yamlQuote(displayPair.description)}\nmetadata:\n  short-description: ${yamlQuote(displayPair.shortDescription)}\n`;
   if (argumentHint) fm += `argument-hint: ${yamlQuote(argumentHint)}\n`;
   if (agent) fm += `agent: ${agent}\n`;
   if (toolsBlock) fm += toolsBlock;
@@ -1737,7 +1912,7 @@ Result parsing:
 </codex_skill_adapter>`;
 }
 
-function convertClaudeCommandToCodexSkill(content, skillName) {
+function convertClaudeCommandToCodexSkill(content, skillName, options = {}) {
   const converted = convertClaudeToCodexMarkdown(content);
   const { frontmatter, body } = extractFrontmatterAndBody(converted);
   let description = `Run GSD workflow ${skillName}.`;
@@ -1748,10 +1923,15 @@ function convertClaudeCommandToCodexSkill(content, skillName) {
     }
   }
   description = toSingleLine(description);
-  const shortDescription = description.length > 180 ? `${description.slice(0, 177)}...` : description;
+  const displayPair = resolveLocalizedDisplayPair('codex-skills', skillName, {
+    locale: options.locale,
+    catalogResolver: options.catalogResolver,
+    fallbackDescription: description,
+    fallbackShortDescription: description.length > 180 ? `${description.slice(0, 177)}...` : description,
+  });
   const adapter = getCodexSkillAdapterHeader(skillName);
 
-  return `---\nname: ${yamlQuote(skillName)}\ndescription: ${yamlQuote(description)}\nmetadata:\n  short-description: ${yamlQuote(shortDescription)}\n---\n\n${adapter}\n\n${body.trimStart()}`;
+  return `---\nname: ${yamlQuote(skillName)}\ndescription: ${yamlQuote(displayPair.description)}\nmetadata:\n  short-description: ${yamlQuote(displayPair.shortDescription)}\n---\n\n${adapter}\n\n${body.trimStart()}`;
 }
 
 /**
@@ -3647,7 +3827,7 @@ function listCodexSkillNames(skillsDir, prefix = 'gsd-') {
     .sort();
 }
 
-function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtime) {
+function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtime, options = {}) {
   if (!fs.existsSync(srcDir)) {
     return;
   }
@@ -3691,7 +3871,7 @@ function copyCommandsAsCodexSkills(srcDir, skillsDir, prefix, pathPrefix, runtim
       content = content.replace(localClaudeRegex, `./${getDirName(runtime)}/`);
       content = content.replace(codexDirRegex, pathPrefix);
       content = processAttribution(content, getCommitAttribution(runtime));
-      content = convertClaudeCommandToCodexSkill(content, skillName);
+      content = convertClaudeCommandToCodexSkill(content, skillName, options);
 
       fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content);
     }
@@ -3993,7 +4173,7 @@ function copyCommandsAsCopilotSkills(srcDir, skillsDir, prefix, isGlobal = false
  * @param {string} runtime - Target runtime
  * @param {boolean} isGlobal - Whether this is a global install
  */
-function copyCommandsAsClaudeSkills(srcDir, skillsDir, prefix, pathPrefix, runtime, isGlobal = false) {
+function copyCommandsAsClaudeSkills(srcDir, skillsDir, prefix, pathPrefix, runtime, isGlobal = false, options = {}) {
   if (!fs.existsSync(srcDir)) {
     return;
   }
@@ -4041,7 +4221,7 @@ function copyCommandsAsClaudeSkills(srcDir, skillsDir, prefix, pathPrefix, runti
         content = content.replace(/\.claude\//g, '.qwen/');
       }
       content = processAttribution(content, getCommitAttribution(runtime));
-      content = convertClaudeCommandToClaudeSkill(content, skillName);
+      content = convertClaudeCommandToClaudeSkill(content, skillName, options);
 
       fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content);
     }
@@ -4493,7 +4673,13 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (runtime === 'qwen') runtimeLabel = 'Qwen Code';
   if (runtime === 'codebuddy') runtimeLabel = 'CodeBuddy';
 
-  console.log(`  Uninstalling GSD from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
+  const installerLocale = resolveInstallerLocale(process.cwd());
+  setInstallerLocale(installerLocale);
+
+  console.log(`  ${installerText('uninstalling_from', {
+    runtime: `${cyan}${runtimeLabel}${reset}`,
+    location: `${cyan}${locationLabel}${reset}`,
+  })}\n`);
 
   // Check if target directory exists
   if (!fs.existsSync(targetDir)) {
@@ -4532,7 +4718,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
       if (skillCount > 0) {
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed ${skillCount} ${runtimeLabel} skills`);
+        console.log(`  ${green}✓${reset} ${installerText('removed_runtime_skills', { count: skillCount, runtime: runtimeLabel })}`);
       }
     }
 
@@ -4961,12 +5147,12 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   if (removedCount === 0) {
-    console.log(`  ${yellow}⚠${reset} No GSD files found to remove.`);
+    console.log(`  ${yellow}⚠${reset} ${installerText('no_gsd_files_found')}`);
   }
 
   console.log(`
-  ${green}Done!${reset} GSD has been uninstalled from ${runtimeLabel}.
-  Your other files and settings have been preserved.
+  ${green}${installerText('done_prefix')}${reset} ${installerText('uninstall_done', { runtime: runtimeLabel })}
+  ${installerText('uninstall_preserved')}
 `);
 }
 
@@ -5227,8 +5413,11 @@ function verifyFileInstalled(filePath, description) {
 // Local Patch Persistence
 // ──────────────────────────────────────────────────────
 
-const PATCHES_DIR_NAME = 'gsd-local-patches';
-const MANIFEST_NAME = 'gsd-file-manifest.json';
+// These constants are derived from the active installer brand so that
+// GSD-CN installs write to brand-namespaced files that cannot overwrite
+// official GSD manifests/patches (CN-04 coexistence contract).
+const PATCHES_DIR_NAME = INSTALLER_BRAND.patchesDirName;
+const MANIFEST_NAME = INSTALLER_BRAND.manifestName;
 
 /**
  * Compute SHA256 hash of file contents
@@ -5289,15 +5478,18 @@ function writeManifest(configDir, runtime = 'claude') {
       manifest.files['commands/gsd/' + rel] = hash;
     }
   }
+  // Use the brand-namespaced command prefix so that manifest entries for GSD-CN
+  // installs never overlap with official GSD manifest entries.
+  const manifestCmdPrefix = INSTALLER_BRAND.cmdPrefix + '-';
   if ((isOpencode || isKilo) && fs.existsSync(opencodeCommandDir)) {
     for (const file of fs.readdirSync(opencodeCommandDir)) {
-      if (file.startsWith('gsd-') && file.endsWith('.md')) {
+      if (file.startsWith(manifestCmdPrefix) && file.endsWith('.md')) {
         manifest.files['command/' + file] = fileHash(path.join(opencodeCommandDir, file));
       }
     }
   }
   if ((isCodex || isCopilot || isAntigravity || isCursor || isWindsurf || isTrae || (!isOpencode && !isGemini)) && fs.existsSync(codexSkillsDir)) {
-    for (const skillName of listCodexSkillNames(codexSkillsDir)) {
+    for (const skillName of listCodexSkillNames(codexSkillsDir, manifestCmdPrefix)) {
       const skillRoot = path.join(codexSkillsDir, skillName);
       const skillHashes = generateManifest(skillRoot);
       for (const [rel, hash] of Object.entries(skillHashes)) {
@@ -5307,6 +5499,8 @@ function writeManifest(configDir, runtime = 'claude') {
   }
   if (fs.existsSync(agentsDir)) {
     for (const file of fs.readdirSync(agentsDir)) {
+      // Agents are always named with the official 'gsd-' prefix in the source repo;
+      // the prefix is only visible to users via skill/command invocations (not agent filenames).
       if (file.startsWith('gsd-') && file.endsWith('.md')) {
         manifest.files['agents/' + file] = fileHash(path.join(agentsDir, file));
       }
@@ -5322,6 +5516,8 @@ function writeManifest(configDir, runtime = 'claude') {
 
   // Track hook files so saveLocalPatches() can detect user modifications
   // Hooks are only installed for runtimes that use settings.json (not Codex/Copilot/Cline)
+  // Hook filenames use the canonical 'gsd-' prefix regardless of brand since they are
+  // internal hook scripts (not user-facing command names).
   if (!isCodex && !isCopilot && !isCline) {
     const hooksDir = path.join(configDir, 'hooks');
     if (fs.existsSync(hooksDir)) {
@@ -5351,7 +5547,7 @@ function saveLocalPatches(configDir) {
   try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')); } catch { return []; }
 
   const patchesDir = path.join(configDir, PATCHES_DIR_NAME);
-  const pristineDir = path.join(configDir, 'gsd-pristine');
+  const pristineDir = path.join(configDir, INSTALLER_BRAND.pristineDirName);
   const modified = [];
 
   for (const [relPath, originalHash] of Object.entries(manifest.files || {})) {
@@ -5410,13 +5606,17 @@ function reportLocalPatches(configDir, runtime = 'claude') {
   try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch { return []; }
 
   if (meta.files && meta.files.length > 0) {
+    // Build the reapply-patches command using the active brand prefix so that
+    // GSD-CN users see '$gsdcn-reapply-patches' while official GSD users see
+    // the canonical '$gsd-reapply-patches' form.
+    const p = INSTALLER_BRAND.cmdPrefix;
     const reapplyCommand = (runtime === 'opencode' || runtime === 'kilo' || runtime === 'copilot')
-      ? '/gsd-reapply-patches'
+      ? `/${p}-reapply-patches`
       : runtime === 'codex'
-        ? '$gsd-reapply-patches'
+        ? `$${p}-reapply-patches`
         : runtime === 'cursor'
-          ? 'gsd-reapply-patches (mention the skill name)'
-          : '/gsd-reapply-patches';
+          ? `${p}-reapply-patches (mention the skill name)`
+          : `/${p}-reapply-patches`;
     console.log('');
     console.log('  ' + yellow + 'Local patches detected' + reset + ' (from v' + meta.from_version + '):');
     for (const f of meta.files) {
@@ -5490,7 +5690,13 @@ function install(isGlobal, runtime = 'claude') {
   if (isCodebuddy) runtimeLabel = 'CodeBuddy';
   if (isCline) runtimeLabel = 'Cline';
 
-  console.log(`  Installing for ${cyan}${runtimeLabel}${reset} to ${cyan}${locationLabel}${reset}\n`);
+  const installerLocale = resolveInstallerLocale(process.cwd());
+  setInstallerLocale(installerLocale);
+
+  console.log(`  ${installerText('installing_for', {
+    runtime: `${cyan}${runtimeLabel}${reset}`,
+    location: `${cyan}${locationLabel}${reset}`,
+  })}\n`);
 
   // Track installation failures
   const failures = [];
@@ -5501,115 +5707,125 @@ function install(isGlobal, runtime = 'claude') {
   // Clean up orphaned files from previous versions
   cleanupOrphanedFiles(targetDir);
 
+  // Resolve the active command prefix from the installer brand config.
+  // For GSD-CN (GSD_BRAND=gsdcn) this is 'gsdcn'; for official GSD it is 'gsd'.
+  // All user-visible skill/command directory names are derived from this prefix
+  // so that the two brands never share the same install-time namespace.
+  const cmdPrefix = INSTALLER_BRAND.cmdPrefix;
+  const cmdPrefixDash = `${cmdPrefix}-`;
+
   // OpenCode/Kilo use command/ (flat), Codex uses skills/, Claude/Gemini use commands/gsd/
   if (isOpencode || isKilo) {
     // OpenCode/Kilo: flat structure in command/ directory
     const commandDir = path.join(targetDir, 'command');
     fs.mkdirSync(commandDir, { recursive: true });
 
-    // Copy commands/gsd/*.md as command/gsd-*.md (flatten structure)
+    // Copy commands/gsd/*.md as command/<prefix>-*.md (flatten structure)
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyFlattenedCommands(gsdSrc, commandDir, 'gsd', pathPrefix, runtime);
-    if (verifyInstalled(commandDir, 'command/gsd-*')) {
-      const count = fs.readdirSync(commandDir).filter(f => f.startsWith('gsd-')).length;
+    copyFlattenedCommands(gsdSrc, commandDir, cmdPrefix, pathPrefix, runtime);
+    if (verifyInstalled(commandDir, `command/${cmdPrefixDash}*`)) {
+      const count = fs.readdirSync(commandDir).filter(f => f.startsWith(cmdPrefixDash)).length;
       console.log(`  ${green}✓${reset} Installed ${count} commands to command/`);
     } else {
-      failures.push('command/gsd-*');
+      failures.push(`command/${cmdPrefixDash}*`);
     }
   } else if (isCodex) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsCodexSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir);
+    copyCommandsAsCodexSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime, { locale: installerLocale });
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash);
     if (installedSkillNames.length > 0) {
-      console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_skills_to_dir', { count: installedSkillNames.length, dir: 'skills/' })}`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isCopilot) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsCopilotSkills(gsdSrc, skillsDir, 'gsd', isGlobal);
+    copyCommandsAsCopilotSkills(gsdSrc, skillsDir, cmdPrefix, isGlobal);
     if (fs.existsSync(skillsDir)) {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
+        .filter(e => e.isDirectory() && e.name.startsWith(cmdPrefixDash)).length;
       if (count > 0) {
         console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
       } else {
-        failures.push('skills/gsd-*');
+        failures.push(`skills/${cmdPrefixDash}*`);
       }
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isAntigravity) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsAntigravitySkills(gsdSrc, skillsDir, 'gsd', isGlobal);
+    copyCommandsAsAntigravitySkills(gsdSrc, skillsDir, cmdPrefix, isGlobal);
     if (fs.existsSync(skillsDir)) {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
+        .filter(e => e.isDirectory() && e.name.startsWith(cmdPrefixDash)).length;
       if (count > 0) {
         console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
       } else {
-        failures.push('skills/gsd-*');
+        failures.push(`skills/${cmdPrefixDash}*`);
       }
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isCursor) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsCursorSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir); // reuse — same dir structure
+    copyCommandsAsCursorSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime);
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash); // reuse — same dir structure
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isWindsurf) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsWindsurfSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir); // reuse — same dir structure
+    copyCommandsAsWindsurfSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime);
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash); // reuse — same dir structure
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isAugment) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsAugmentSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir);
+    copyCommandsAsAugmentSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime);
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash);
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isTrae) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsTraeSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir);
+    copyCommandsAsTraeSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime);
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash);
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isQwen) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsClaudeSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime, isGlobal);
+    copyCommandsAsClaudeSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime, isGlobal, {
+      locale: installerLocale,
+      catalogResolver: () => null,
+    });
     if (fs.existsSync(skillsDir)) {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
+        .filter(e => e.isDirectory() && e.name.startsWith(cmdPrefixDash)).length;
       if (count > 0) {
         console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
       } else {
-        failures.push('skills/gsd-*');
+        failures.push(`skills/${cmdPrefixDash}*`);
       }
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
 
     const legacyCommandsDir = path.join(targetDir, 'commands', 'gsd');
@@ -5622,12 +5838,12 @@ function install(isGlobal, runtime = 'claude') {
   } else if (isCodebuddy) {
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsCodebuddySkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime);
-    const installedSkillNames = listCodexSkillNames(skillsDir);
+    copyCommandsAsCodebuddySkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime);
+    const installedSkillNames = listCodexSkillNames(skillsDir, cmdPrefixDash);
     if (installedSkillNames.length > 0) {
       console.log(`  ${green}✓${reset} Installed ${installedSkillNames.length} skills to skills/`);
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
   } else if (isCline) {
     // Cline is rules-based — commands are embedded in .clinerules (generated below).
@@ -5648,17 +5864,17 @@ function install(isGlobal, runtime = 'claude') {
     // Claude Code global: skills/ format (2.1.88+ compatibility)
     const skillsDir = path.join(targetDir, 'skills');
     const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyCommandsAsClaudeSkills(gsdSrc, skillsDir, 'gsd', pathPrefix, runtime, isGlobal);
+    copyCommandsAsClaudeSkills(gsdSrc, skillsDir, cmdPrefix, pathPrefix, runtime, isGlobal, { locale: installerLocale });
     if (fs.existsSync(skillsDir)) {
       const count = fs.readdirSync(skillsDir, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith('gsd-')).length;
+        .filter(e => e.isDirectory() && e.name.startsWith(cmdPrefixDash)).length;
       if (count > 0) {
         console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
       } else {
-        failures.push('skills/gsd-*');
+        failures.push(`skills/${cmdPrefixDash}*`);
       }
     } else {
-      failures.push('skills/gsd-*');
+      failures.push(`skills/${cmdPrefixDash}*`);
     }
 
     // Clean up legacy commands/gsd/ from previous global installs
@@ -5689,7 +5905,7 @@ function install(isGlobal, runtime = 'claude') {
     const staleSkillsDir = path.join(targetDir, 'skills');
     if (fs.existsSync(staleSkillsDir)) {
       const staleGsd = fs.readdirSync(staleSkillsDir, { withFileTypes: true })
-        .filter(e => e.isDirectory() && e.name.startsWith('gsd-'));
+        .filter(e => e.isDirectory() && e.name.startsWith(cmdPrefixDash));
       for (const e of staleGsd) {
         fs.rmSync(path.join(staleSkillsDir, e.name), { recursive: true });
       }
@@ -5707,7 +5923,7 @@ function install(isGlobal, runtime = 'claude') {
   copyWithPathReplacement(skillSrc, skillDest, pathPrefix, runtime, false, isGlobal);
   restoreUserArtifacts(skillDest, savedGsdArtifacts);
   if (verifyInstalled(skillDest, 'get-shit-done')) {
-    console.log(`  ${green}✓${reset} Installed get-shit-done`);
+    console.log(`  ${green}✓${reset} ${installerText('installed_engine')}`);
   } else {
     failures.push('get-shit-done');
   }
@@ -5784,7 +6000,7 @@ function install(isGlobal, runtime = 'claude') {
       }
     }
     if (verifyInstalled(agentsDest, 'agents')) {
-      console.log(`  ${green}✓${reset} Installed agents`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_agents')}`);
     } else {
       failures.push('agents');
     }
@@ -5796,7 +6012,7 @@ function install(isGlobal, runtime = 'claude') {
   if (fs.existsSync(changelogSrc)) {
     fs.copyFileSync(changelogSrc, changelogDest);
     if (verifyFileInstalled(changelogDest, 'CHANGELOG.md')) {
-      console.log(`  ${green}✓${reset} Installed CHANGELOG.md`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_changelog')}`);
     } else {
       failures.push('CHANGELOG.md');
     }
@@ -5806,7 +6022,7 @@ function install(isGlobal, runtime = 'claude') {
   const versionDest = path.join(targetDir, 'get-shit-done', 'VERSION');
   fs.writeFileSync(versionDest, pkg.version);
   if (verifyFileInstalled(versionDest, 'VERSION')) {
-    console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
+    console.log(`  ${green}✓${reset} ${installerText('wrote_version', { version: pkg.version })}`);
   } else {
     failures.push('VERSION');
   }
@@ -5861,7 +6077,7 @@ function install(isGlobal, runtime = 'claude') {
         }
       }
       if (verifyInstalled(hooksDest, 'hooks')) {
-        console.log(`  ${green}✓${reset} Installed hooks (bundled)`);
+        console.log(`  ${green}✓${reset} ${installerText('installed_hooks_bundled')}`);
         // Warn if expected community .sh hooks are missing (non-fatal)
         const expectedShHooks = ['gsd-session-state.sh', 'gsd-validate-commit.sh', 'gsd-phase-boundary.sh'];
         for (const sh of expectedShHooks) {
@@ -5875,9 +6091,15 @@ function install(isGlobal, runtime = 'claude') {
     }
   }
 
-  // Clear stale update cache so next session re-evaluates hook versions
-  // Cache lives at ~/.cache/gsd/ (see hooks/gsd-check-update.js line 35-36)
-  const updateCacheFile = path.join(os.homedir(), '.cache', 'gsd', 'gsd-update-check.json');
+  // Clear stale update cache so next session re-evaluates hook versions.
+  // Cache path is brand-namespaced so GSD and GSD-CN caches never collide
+  // (CN-04 coexistence contract). Official: ~/.cache/gsd/gsd-update-check.json
+  // GSD-CN: ~/.cache/gsdcn/gsdcn-update-check.json
+  const updateCacheFile = path.join(
+    os.homedir(), '.cache',
+    INSTALLER_BRAND.updateCacheDirName,
+    INSTALLER_BRAND.updateCacheFileName,
+  );
   try { fs.unlinkSync(updateCacheFile); } catch (e) { /* cache may not exist yet */ }
 
   if (failures.length > 0) {
@@ -5887,7 +6109,7 @@ function install(isGlobal, runtime = 'claude') {
 
   // Write file manifest for future modification detection
   writeManifest(targetDir, runtime);
-  console.log(`  ${green}✓${reset} Wrote file manifest (${MANIFEST_NAME})`);
+  console.log(`  ${green}✓${reset} ${installerText('wrote_file_manifest', { file: MANIFEST_NAME })}`);
 
   // Report any backed-up local patches
   reportLocalPatches(targetDir, runtime);
@@ -5944,8 +6166,8 @@ function install(isGlobal, runtime = 'claude') {
   if (isCodex) {
     // Generate Codex config.toml and per-agent .toml files
     const agentCount = installCodexConfig(targetDir, agentsSrc);
-    console.log(`  ${green}✓${reset} Generated config.toml with ${agentCount} agent roles`);
-    console.log(`  ${green}✓${reset} Generated ${agentCount} agent .toml config files`);
+    console.log(`  ${green}✓${reset} ${installerText('generated_codex_config_toml', { count: agentCount })}`);
+    console.log(`  ${green}✓${reset} ${installerText('generated_codex_agent_toml_files', { count: agentCount })}`);
 
     // Copy hook files that are referenced in config.toml (#2153)
     // The main hook-copy block is gated to non-Codex runtimes, but Codex registers
@@ -5978,7 +6200,7 @@ function install(isGlobal, runtime = 'claude') {
           }
         }
       }
-      console.log(`  ${green}✓${reset} Installed hooks`);
+      console.log(`  ${green}✓${reset} ${installerText('installed_hooks')}`);
     }
 
     // Add Codex hooks (SessionStart for update checking) — requires codex_hooks feature flag
@@ -5989,13 +6211,18 @@ function install(isGlobal, runtime = 'claude') {
       const codexHooksFeature = ensureCodexHooksFeature(configContent);
       configContent = setManagedCodexHooksOwnership(codexHooksFeature.content, codexHooksFeature.ownership);
 
-      // Add SessionStart hook for update checking
+      // Add SessionStart hook for update checking.
+      // Pass GSD_BRAND so the hook writes to the brand-namespaced cache dir and
+      // never collides with the other brand's update-check state (CN-04).
       const updateCheckScript = path.resolve(targetDir, 'hooks', 'gsd-check-update.js').replace(/\\/g, '/');
+      const brandEnvPrefix = INSTALLER_BRAND.brandId !== 'official'
+        ? `GSD_BRAND=${INSTALLER_BRAND.brandId} `
+        : '';
       const hookBlock =
         `${eol}# GSD Hooks${eol}` +
         `[[hooks]]${eol}` +
         `event = "SessionStart"${eol}` +
-        `command = "node ${updateCheckScript}"${eol}`;
+        `command = "${brandEnvPrefix}node ${updateCheckScript}"${eol}`;
 
       // Migrate legacy gsd-update-check entries from prior installs (#1755 followup)
       // Remove stale hook blocks that used the inverted filename or wrong path
@@ -6009,7 +6236,7 @@ function install(isGlobal, runtime = 'claude') {
       }
 
       fs.writeFileSync(configPath, configContent, 'utf-8');
-      console.log(`  ${green}✓${reset} Configured Codex hooks (SessionStart)`);
+      console.log(`  ${green}✓${reset} ${installerText('configured_codex_hooks')}`);
     } catch (e) {
       console.warn(`  ${yellow}⚠${reset}  Could not configure Codex hooks: ${e.message}`);
     }
@@ -6082,9 +6309,15 @@ function install(isGlobal, runtime = 'claude') {
   const statuslineCommand = isGlobal
     ? buildHookCommand(targetDir, 'gsd-statusline.js', hookOpts)
     : 'node ' + localPrefix + '/hooks/gsd-statusline.js';
-  const updateCheckCommand = isGlobal
+  // Prepend GSD_BRAND env var for non-official brands so gsd-check-update.js
+  // writes to the brand-namespaced cache dir, preventing collisions with
+  // official GSD update-check state on the same machine (CN-04).
+  const _updateCmdBase = isGlobal
     ? buildHookCommand(targetDir, 'gsd-check-update.js', hookOpts)
     : 'node ' + localPrefix + '/hooks/gsd-check-update.js';
+  const updateCheckCommand = INSTALLER_BRAND.brandId !== 'official'
+    ? 'GSD_BRAND=' + INSTALLER_BRAND.brandId + ' ' + _updateCmdBase
+    : _updateCmdBase;
   const contextMonitorCommand = isGlobal
     ? buildHookCommand(targetDir, 'gsd-context-monitor.js', hookOpts)
     : 'node ' + localPrefix + '/hooks/gsd-context-monitor.js';
@@ -6890,7 +7123,7 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
 }
 
 // Test-only exports — skip main logic when loaded as a module for testing
-if (process.env.GSD_TEST_MODE) {
+if (isRequiredForTests) {
   module.exports = {
     yamlIdentifier,
     getCodexSkillAdapterHeader,
@@ -6957,6 +7190,13 @@ if (process.env.GSD_TEST_MODE) {
     preserveUserArtifacts,
     restoreUserArtifacts,
     finishInstall,
+    resolveInstallerLocale,
+    // Brand coexistence seam (GSD-CN namespace isolation contract)
+    INSTALLER_BRAND_CONFIGS,
+    resolveInstallerBrand,
+    INSTALLER_BRAND,
+    MANIFEST_NAME,
+    PATCHES_DIR_NAME,
   };
 } else {
 
