@@ -26,6 +26,87 @@ const CONFIG_KEY_SUGGESTIONS = {
   'review.model': 'review.models.<cli-name>',
 };
 
+const DOCUMENTABLE_CONFIG_KEYS = Object.freeze([
+  'agent_skills',
+  'brave_search',
+  'claude_md_path',
+  'commit_docs',
+  'context',
+  'context_window',
+  'exa_search',
+  'features.global_learnings',
+  'features.thinking_partner',
+  'firecrawl',
+  'git.base_branch',
+  'git.branching_strategy',
+  'git.milestone_branch_template',
+  'git.phase_branch_template',
+  'git.quick_branch_template',
+  'granularity',
+  'graphify.build_timeout',
+  'graphify.enabled',
+  'hooks.context_warnings',
+  'intel.enabled',
+  'learnings.max_inject',
+  'manager.flags.discuss',
+  'manager.flags.execute',
+  'manager.flags.plan',
+  'mode',
+  'model_overrides',
+  'model_profile',
+  'parallelization',
+  'phase_naming',
+  'planning.commit_docs',
+  'planning.search_gitignored',
+  'project_code',
+  'resolve_model_ids',
+  'response_language',
+  'review.models.<cli>',
+  'search_gitignored',
+  'sub_repos',
+  'workflow._auto_chain_active',
+  'workflow.ai_integration_phase',
+  'workflow.auto_advance',
+  'workflow.auto_prune_state',
+  'workflow.code_review',
+  'workflow.code_review_command',
+  'workflow.code_review_depth',
+  'workflow.cross_ai_command',
+  'workflow.cross_ai_execution',
+  'workflow.cross_ai_timeout',
+  'workflow.discuss_mode',
+  'workflow.inline_plan_threshold',
+  'workflow.node_repair',
+  'workflow.node_repair_budget',
+  'workflow.nyquist_validation',
+  'workflow.pattern_mapper',
+  'workflow.plan_bounce',
+  'workflow.plan_bounce_passes',
+  'workflow.plan_bounce_script',
+  'workflow.plan_check',
+  'workflow.research',
+  'workflow.research_before_questions',
+  'workflow.security_asvs_level',
+  'workflow.security_block_on',
+  'workflow.security_enforcement',
+  'workflow.skip_discuss',
+  'workflow.subagent_timeout',
+  'workflow.tdd_mode',
+  'workflow.text_mode',
+  'workflow.ui_phase',
+  'workflow.ui_safety_gate',
+  'workflow.use_worktrees',
+  'workflow.verifier',
+]);
+
+function getDocumentableConfigKeys() {
+  return [...DOCUMENTABLE_CONFIG_KEYS];
+}
+
+function getDocumentableConfigExemptions() {
+  return [];
+}
+
 function validateKnownConfigKeyPath(keyPath) {
   const suggested = CONFIG_KEY_SUGGESTIONS[keyPath];
   if (suggested) {
@@ -454,6 +535,9 @@ function cmdConfigPath(cwd) {
 
 module.exports = {
   VALID_CONFIG_KEYS,
+  buildNewProjectConfig,
+  getDocumentableConfigKeys,
+  getDocumentableConfigExemptions,
   cmdConfigEnsureSection,
   cmdConfigSet,
   cmdConfigGet,
