@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: 发布前 npm/package 命名与安装体验收口
-status: planned
-stopped_at: v2.2 roadmap created — ready to plan Phase 25
+status: in_progress
+stopped_at: Phase 28 complete — v2.2 local readiness validated
 last_updated: "2026-04-24T12:00:00Z"
-last_activity: 2026-04-24 — v2.2 requirements and roadmap created; v2.1 paused by user instruction
+last_activity: 2026-04-24 — Phase 25 plans created; v2.1 paused by user instruction
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 0
-  percent: 0
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: Phase 25 (PLANNED)
-Plan: none — run /gsd-plan-phase 25
-Status: planned; requirements and roadmap created
-Last activity: 2026-04-24 — v2.2 roadmap created
+Phase: Phase 28 (COMPLETE)
+Plan: Phase 28 complete — 2/2 plans summarized
+Status: v2.2 local readiness validated; ready for milestone audit/completion or human publish decision
+Last activity: 2026-04-24 — Phase 28 executed, focused gate passed, evidence report created
 
-Progress: [--------------] 0% (0/8 plans complete)
+Progress: [██████████████] 100% (8/8 plans complete)
 
 ## Latest Shipped Milestone
 
@@ -61,5 +61,5 @@ Progress: [--------------] 0% (0/8 plans complete)
 ## Session Continuity
 
 Last session: 2026-04-24T12:00:00Z
-Stopped at: v2.2 roadmap created — ready to plan Phase 25
-Resume with: /gsd-plan-phase 25
+Stopped at: Phase 28 complete — v2.2 local readiness validated
+Resume with: /gsd-progress

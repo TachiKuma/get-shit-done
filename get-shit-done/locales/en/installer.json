@@ -139,5 +139,7 @@
   "installer.cannot_specify_both_global_local": "Cannot specify both --global and --local",
   "installer.cannot_use_config_dir_with_local": "Cannot use --config-dir with --local",
   "installer.uninstall_requires_global_or_local": "--uninstall requires --global or --local",
-  "installer.non_interactive_default_claude_global": "Non-interactive terminal detected, defaulting to Claude Code global install"
+  "installer.non_interactive_default_claude_global": "Non-interactive terminal detected, defaulting to Claude Code global install",
+  "installer.cannot_specify_both_sdk_no_sdk": "Cannot specify both --sdk and --no-sdk",
+  "installer.finish_open_blank_directory": "Open a blank directory in {{program}} and run {{command}}."
 }

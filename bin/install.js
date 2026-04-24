@@ -145,11 +145,11 @@ function installerText(key, variables = {}) {
 function resolveInstallerLocale(projectDir = process.cwd()) {
   try {
     const configPath = path.join(projectDir, '.planning', 'config.json');
-    if (!fs.existsSync(configPath)) return DEFAULT_LOCALE;
+    if (!fs.existsSync(configPath)) return INSTALLER_BRAND.brandId === 'gsdcn' ? 'zh-CN' : DEFAULT_LOCALE;
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    return normalizeLocale(config.response_language) || DEFAULT_LOCALE;
+    return normalizeLocale(config.response_language) || (INSTALLER_BRAND.brandId === 'gsdcn' ? 'zh-CN' : DEFAULT_LOCALE);
   } catch {
-    return DEFAULT_LOCALE;
+    return INSTALLER_BRAND.brandId === 'gsdcn' ? 'zh-CN' : DEFAULT_LOCALE;
   }
 }
 
@@ -217,7 +217,7 @@ const hasSdk = args.includes('--sdk');
 const hasNoSdk = args.includes('--no-sdk');
 
 if (hasSdk && hasNoSdk) {
-  console.error(`  ${yellow}Cannot specify both --sdk and --no-sdk${reset}`);
+  console.error(`  ${yellow}${installerText('cannot_specify_both_sdk_no_sdk')}${reset}`);
   process.exit(1);
 }
 
@@ -263,16 +263,17 @@ if (process.platform === 'win32') {
   }
 
   if (isWSL) {
+    const rerunCommand = INSTALLER_BRAND.brandId === 'gsdcn' ? 'npx gsdcn@latest' : 'npx get-shit-done-cc@latest';
     console.error(`
-${yellow}⚠ Detected WSL with Windows-native Node.js.${reset}
+${yellow}⚠ ${installerText('wsl_windows_node_title')}${reset}
 
-This causes path resolution issues that prevent correct installation.
-Please install a Linux-native Node.js inside WSL:
+${installerText('wsl_windows_node_body')}
+${installerText('wsl_windows_node_install_hint')}
 
   curl -fsSL https://fnm.vercel.app/install | bash
   fnm install --lts
 
-Then re-run: npx get-shit-done-cc@latest
+${installerText('wsl_windows_node_rerun', { command: rerunCommand })}
 `);
     process.exit(1);
   }
@@ -551,7 +552,7 @@ function parseConfigDirArg() {
     const nextArg = args[configDirIndex + 1];
     // Error if --config-dir is provided without a value or next arg is another flag
     if (!nextArg || nextArg.startsWith('-')) {
-      console.error(`  ${yellow}--config-dir requires a path argument${reset}`);
+      console.error(`  ${yellow}${installerText('config_dir_requires_path')}${reset}`);
       process.exit(1);
     }
     return nextArg;
@@ -561,7 +562,7 @@ function parseConfigDirArg() {
   if (configDirArg) {
     const value = configDirArg.split('=')[1];
     if (!value) {
-      console.error(`  ${yellow}--config-dir requires a non-empty path${reset}`);
+      console.error(`  ${yellow}${installerText('config_dir_requires_non_empty_path')}${reset}`);
       process.exit(1);
     }
     return value;
@@ -582,10 +583,11 @@ if (isCliEntry && hasUninstall) {
 if (isCliEntry && hasHelp) {
   const helpLocale = resolveInstallerLocale(process.cwd());
   setInstallerLocale(helpLocale);
+  const packageCommand = INSTALLER_BRAND.brandId === 'gsdcn' ? 'gsdcn' : 'get-shit-done-cc';
   // Source-parity markers for install tests that verify runtime help copy exists:
   // Install for Kilo only
   // Install for Codex only
-  console.log(`  ${yellow}${installerText('help_usage')}${reset} npx get-shit-done-cc [options]\n`);
+  console.log(`  ${yellow}${installerText('help_usage')}${reset} npx ${packageCommand} [options]\n`);
   console.log(`  ${yellow}${installerText('help_options')}${reset}`);
   console.log(`    ${cyan}-g, --global${reset}              ${installerText('help_install_globally')}`);
   console.log(`    ${cyan}-l, --local${reset}               ${installerText('help_install_locally')}`);
@@ -612,11 +614,11 @@ if (isCliEntry && hasHelp) {
   console.log(`                              ${installerText('help_emit_home_relative_hooks_continued')}\n`);
   console.log(`  ${yellow}${installerText('help_examples')}${reset}`);
   console.log(`    ${dim}# ${installerText('help_interactive_install')}${reset}`);
-  console.log('    npx get-shit-done-cc\n');
+  console.log(`    npx ${packageCommand}\n`);
   console.log(`    ${dim}# ${installerText('help_install_for_runtime_globally', { runtime: 'Codex' })}${reset}`);
-  console.log('    npx get-shit-done-cc --codex --global\n');
+  console.log(`    npx ${packageCommand} --codex --global\n`);
   console.log(`    ${dim}# ${installerText('help_install_current_project_only')}${reset}`);
-  console.log('    npx get-shit-done-cc --claude --local\n');
+  console.log(`    npx ${packageCommand} --claude --local\n`);
   console.log(`  ${yellow}${installerText('help_notes')}${reset}`);
   console.log(`    ${installerText('help_config_dir_note')}`);
   console.log(`    ${installerText('help_config_dir_priority')}\n`);
@@ -6111,7 +6113,7 @@ function install(isGlobal, runtime = 'claude') {
   try { fs.unlinkSync(updateCacheFile); } catch (e) { /* cache may not exist yet */ }
 
   if (failures.length > 0) {
-    console.error(`\n  ${yellow}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
+    console.error(`\n  ${yellow}${installerText('installation_incomplete', { failures: failures.join(', ') })}${reset}`);
     process.exit(1);
   }
 
@@ -6708,9 +6710,9 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'cline') command = `/${commandPrefix}-new-project`;
   if (runtime === 'qwen') command = `/${commandPrefix}-new-project`;
   console.log(`
-  ${green}Done!${reset} Open a blank directory in ${program} and run ${cyan}${command}${reset}.
+  ${green}${installerText('done_prefix')}${reset} ${installerText('finish_open_blank_directory', { program, command: `${cyan}${command}${reset}` })}
 
-  ${cyan}Join the community:${reset} https://discord.gg/mYgfVNfA2r
+  ${cyan}${installerText('join_community')}${reset} https://discord.gg/mYgfVNfA2r
 `);
 }
 
@@ -7223,14 +7225,14 @@ if (isRequiredForTests) {
     const globalDir = getGlobalDir(runtimeArg, null);
     console.log(path.join(globalDir, 'skills'));
   } else if (hasGlobal && hasLocal) {
-    console.error(`  ${yellow}Cannot specify both --global and --local${reset}`);
+    console.error(`  ${yellow}${installerText('cannot_specify_both_global_local')}${reset}`);
     process.exit(1);
   } else if (explicitConfigDir && hasLocal) {
-    console.error(`  ${yellow}Cannot use --config-dir with --local${reset}`);
+    console.error(`  ${yellow}${installerText('cannot_use_config_dir_with_local')}${reset}`);
     process.exit(1);
   } else if (hasUninstall) {
     if (!hasGlobal && !hasLocal) {
-      console.error(`  ${yellow}--uninstall requires --global or --local${reset}`);
+      console.error(`  ${yellow}${installerText('uninstall_requires_global_or_local')}${reset}`);
       process.exit(1);
     }
     const runtimes = selectedRuntimes.length > 0 ? selectedRuntimes : ['claude'];
@@ -7249,7 +7251,7 @@ if (isRequiredForTests) {
   } else {
     // Interactive
     if (!process.stdin.isTTY) {
-      console.log(`  ${yellow}Non-interactive terminal detected, defaulting to Claude Code global install${reset}\n`);
+      console.log(`  ${yellow}${installerText('non_interactive_default_claude_global')}${reset}\n`);
       installAllRuntimes(['claude'], true, false);
     } else {
       promptRuntime((runtimes) => {

@@ -139,5 +139,7 @@
   "installer.cannot_specify_both_global_local": "不能同时指定 --global 和 --local",
   "installer.cannot_use_config_dir_with_local": "不能将 --config-dir 与 --local 一起使用",
   "installer.uninstall_requires_global_or_local": "--uninstall 需要配合 --global 或 --local 使用",
-  "installer.non_interactive_default_claude_global": "检测到非交互终端，默认执行 Claude Code 全局安装"
+  "installer.non_interactive_default_claude_global": "检测到非交互终端，默认执行 Claude Code 全局安装",
+  "installer.cannot_specify_both_sdk_no_sdk": "不能同时指定 --sdk 和 --no-sdk",
+  "installer.finish_open_blank_directory": "在 {{program}} 中打开一个空目录，然后运行 {{command}}。"
 }

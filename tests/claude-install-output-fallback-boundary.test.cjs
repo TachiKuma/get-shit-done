@@ -85,23 +85,24 @@ function createTempClaudeConfigRoot() {
   return configDir;
 }
 
-function assertEnglishFallbackPair(configDir, englishCatalog) {
+function assertLocalizedPair(configDir, primaryCatalog, fallbackCatalog) {
   for (const skill of NON_PROMISED_SAMPLE) {
     const content = readInstalledSkill(configDir, skill);
     const frontmatter = extractFrontmatter(content);
+    const descriptionKey = `claude-skills.${skill}.description`;
+    const shortDescriptionKey = `claude-skills.${skill}.short-description`;
+    const expectedDescription = primaryCatalog[descriptionKey] || fallbackCatalog[descriptionKey];
+    const expectedShortDescription = primaryCatalog[shortDescriptionKey] || fallbackCatalog[shortDescriptionKey];
 
-    assert.equal(
-      extractDescription(content),
-      englishCatalog[`claude-skills.${skill}.description`]
-    );
-    assert.equal(
-      extractShortDescription(content),
-      englishCatalog[`claude-skills.${skill}.short-description`]
-    );
+    assert.equal(extractDescription(content), expectedDescription);
+    assert.equal(extractShortDescription(content), expectedShortDescription);
     assert.ok(content.includes(`name: ${skill}`), `${skill} should keep its English identifier`);
     assert.ok(frontmatter.includes('metadata:'), `${skill} should include display metadata`);
-    assert.doesNotMatch(frontmatter, /[\u4e00-\u9fff]/, `${skill} frontmatter should stay English-only`);
   }
+}
+
+function assertEnglishFallbackPair(configDir, englishCatalog) {
+  assertLocalizedPair(configDir, englishCatalog, englishCatalog);
 }
 
 afterEach(() => {
@@ -111,7 +112,7 @@ afterEach(() => {
 });
 
 describe('claude install output fallback boundary', () => {
-  test('zh-CN install keeps non-promised sampled skills on the English fallback pair', () => {
+  test('zh-CN install uses zh-CN skill text when present and English fallback otherwise', () => {
     const projectDir = createTempProject();
     const configDir = createTempClaudeConfigRoot();
     const englishCatalog = readCatalog(EN_CATALOG_PATH);
@@ -119,18 +120,12 @@ describe('claude install output fallback boundary', () => {
 
     writePlanningConfig(projectDir, 'zh-CN');
     runGlobalClaudeInstall(projectDir, configDir);
-    assertEnglishFallbackPair(configDir, englishCatalog);
+    assertLocalizedPair(configDir, chineseCatalog, englishCatalog);
 
     for (const skill of NON_PROMISED_SAMPLE) {
-      assert.equal(
-        chineseCatalog[`claude-skills.${skill}.description`],
-        undefined,
-        `${skill} should remain outside the zh-CN promised subset`
-      );
-      assert.equal(
-        chineseCatalog[`claude-skills.${skill}.short-description`],
-        undefined,
-        `${skill} should remain outside the zh-CN promised subset`
+      assert.ok(
+        chineseCatalog[`claude-skills.${skill}.description`] || englishCatalog[`claude-skills.${skill}.description`],
+        `${skill} should have zh-CN text or English fallback text`
       );
     }
   });

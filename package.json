@@ -1,9 +1,9 @@
 {
-  "name": "get-shit-done-cc",
+  "name": "gsdcn",
   "version": "1.37.1",
-  "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini and Codex by TÂCHES.",
+  "description": "GSD-CN: an unofficial Simplified Chinese distribution of get-shit-done with upstream-compatible behavior.",
   "bin": {
-    "get-shit-done-cc": "bin/install.js"
+    "gsdcn": "bin/gsdcn.js"
   },
   "files": [
     "bin",
@@ -13,6 +13,7 @@
     "hooks",
     "scripts",
     "sdk/src",
+    "!sdk/src/**/*.test.ts",
     "sdk/prompts",
     "sdk/package.json",
     "sdk/package-lock.json",
@@ -52,6 +53,7 @@
     "build:hooks": "node scripts/build-hooks.js",
     "prepublishOnly": "npm run build:hooks",
     "test": "node scripts/run-tests.cjs",
+    "test:gsdcn-release-gate": "node scripts/run-gsdcn-release-gate.cjs",
     "test:coverage": "c8 --check-coverage --lines 70 --reporter text --include 'get-shit-done/bin/lib/*.cjs' --exclude 'tests/**' --all node scripts/run-tests.cjs"
   }
 }

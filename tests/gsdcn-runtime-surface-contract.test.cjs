@@ -29,8 +29,8 @@ describe('GSD-CN runtime/Cline surface contract', () => {
 
   test('GSD-CN README install surface does not present ambiguous first install command', () => {
     const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-    const firstInstall = readme.match(/npx get-shit-done-cc@latest[^\n]*/);
+    const firstInstall = readme.match(/npx gsdcn@latest[^\n]*/);
     assert.ok(firstInstall, 'README must contain an install command');
-    assert.ok(firstInstall[0].includes('--gsdcn'), `first install command must include --gsdcn, got: ${firstInstall[0]}`);
+    assert.strictEqual(firstInstall[0].trim(), 'npx gsdcn@latest');
   });
 });

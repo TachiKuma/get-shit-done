@@ -13,10 +13,10 @@
 <br>
 
 ```bash
-npx get-shit-done-cc@latest --gsdcn
+npx gsdcn@latest
 ```
 
-`--gsdcn` 会显式激活 GSD-CN 品牌安装路径，生成 `gsdcn-*` 命令前缀、`gsdcn-file-manifest.json` 与 `.planning-gsdcn/` 状态目录。
+`gsdcn` npm 入口会显式激活 GSD-CN 品牌安装路径，生成 `gsdcn-*` 命令前缀、`gsdcn-file-manifest.json` 与 `.planning-gsdcn/` 状态目录。
 
 **支持 Mac、Windows 和 Linux。**
 
@@ -63,13 +63,13 @@ npx get-shit-done-cc@latest --gsdcn
 ## 快速开始
 
 ```bash
-npx get-shit-done-cc@latest --gsdcn
+npx gsdcn@latest
 ```
 
 Windows PowerShell：
 
 ```powershell
-npx get-shit-done-cc@latest --gsdcn
+npx gsdcn@latest
 ```
 
 安装器会提示选择：
@@ -81,7 +81,7 @@ npx get-shit-done-cc@latest --gsdcn
 - Codex：`$gsdcn-help`
 
 > [!NOTE]
-> 若需要在同一台机器上同时使用官方 GSD 与 GSD-CN，两套安装互不覆盖，命令、技能（skills）、配置与缓存均完全隔离。官方 GSD 默认安装路径仍是 `npx get-shit-done-cc@latest`；GSD-CN 使用 `--gsdcn` 显式进入中文发行版品牌。
+> 若需要在同一台机器上同时使用官方 GSD 与 GSD-CN，两套安装互不覆盖，命令、技能（skills）、配置与缓存均完全隔离。官方 GSD 默认安装路径仍是 `npx get-shit-done-cc@latest`；GSD-CN 使用 `npx gsdcn@latest` 显式进入中文发行版品牌。
 
 ---
 
@@ -295,11 +295,11 @@ GSD-CN 继承上游所有安全加固能力：
 
 **命令不按预期工作？**
 - 运行 `/gsdcn-help` 验证安装
-- 重新运行 `npx get-shit-done-cc` 重新安装
+- 重新运行 `npx gsdcn@latest` 重新安装
 
 **更新到最新版本：**
 ```bash
-npx get-shit-done-cc@latest --gsdcn
+npx gsdcn@latest
 ```
 
 ---
@@ -308,11 +308,11 @@ npx get-shit-done-cc@latest --gsdcn
 
 ```bash
 # 全局卸载
-npx get-shit-done-cc --gsdcn --claude --global --uninstall
-npx get-shit-done-cc --gsdcn --codex --global --uninstall
+npx gsdcn --claude --global --uninstall
+npx gsdcn --codex --global --uninstall
 
 # 本地卸载（当前项目）
-npx get-shit-done-cc --gsdcn --claude --local --uninstall
+npx gsdcn --claude --local --uninstall
 ```
 
 这将移除所有 GSD-CN 命令、agents、hooks 与设置，同时保留你的其他配置。

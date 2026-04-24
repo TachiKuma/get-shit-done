@@ -155,8 +155,8 @@ describe('README.md — structural parity: GSD-CN main README', () => {
   test('README.md contains install command example', () => {
     const content = readFile(README_PATH);
     assert.ok(
-      content.includes('npx get-shit-done-cc'),
-      'README.md must contain the npx install command'
+      content.includes('npx gsdcn@latest'),
+      'README.md must contain the GSD-CN npx install command'
     );
   });
 
