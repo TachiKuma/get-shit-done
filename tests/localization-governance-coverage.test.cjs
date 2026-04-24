@@ -370,7 +370,7 @@ describe('localization governance manifest coverage', () => {
     );
     assert.ok(
       entries.some(entry =>
-        entry.surfaces.some(surface => surface.id === 'claude-skill-display-catalog-zh-CN-first-batch')
+        entry.surfaces.some(surface => surface.id === 'claude-skill-display-catalog-zh-CN-full')
       )
     );
     assert.ok(
@@ -463,15 +463,14 @@ describe('localization governance manifest coverage', () => {
 
   test('Claude governance groups stay blocker-scoped and keep the expected verifier entries', () => {
     const manifest = loadGovernanceManifest();
-    const claudeCatalogGroup = getSurfaceGroup(manifest, 'claude-skill-display-localization-first-batch');
+    const claudeCatalogGroup = getSurfaceGroup(manifest, 'claude-skill-display-localization-full');
     const claudeInstallGroup = getSurfaceGroup(manifest, 'claude-install-output-first-batch');
 
     assert.ok(claudeCatalogGroup, 'claude catalog group should exist');
     assert.equal(claudeCatalogGroup.disposition, 'blocker');
-    assert.deepStrictEqual(claudeCatalogGroup.scope_skills, FIRST_BATCH);
-    assert.match(claudeCatalogGroup.reason, /six/i);
-    assert.match(claudeCatalogGroup.reason, /82-skill English baseline/i);
-    assert.match(claudeCatalogGroup.reason, /not upgraded to a hard gate/i);
+    assert.equal(Object.hasOwn(claudeCatalogGroup, 'scope_skills'), false);
+    assert.match(claudeCatalogGroup.reason, /full current command-inventory coverage/i);
+    assert.match(claudeCatalogGroup.reason, /display-layer-only localization/i);
     assert.deepStrictEqual(
       claudeCatalogGroup.surfaces.map(surface => surface.path).sort(),
       [
@@ -582,8 +581,8 @@ describe('localization governance verifier behavior', () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /tests\/claude-skill-display-localization\.test\.cjs/);
     assert.match(result.stdout, /tests\/claude-install-output-localization\.test\.cjs/);
-    assert.match(result.stdout, /surface:claude-skill-display-catalog-en-first-batch/);
-    assert.match(result.stdout, /surface:claude-skill-display-catalog-zh-CN-first-batch/);
+    assert.match(result.stdout, /surface:claude-skill-display-catalog-en-full/);
+    assert.match(result.stdout, /surface:claude-skill-display-catalog-zh-CN-full/);
     assert.match(result.stdout, /surface:claude-install-output-first-batch/);
   });
 

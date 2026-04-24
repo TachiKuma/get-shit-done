@@ -9,14 +9,6 @@ const ROOT = path.join(__dirname, '..');
 const COMMANDS_ROOT = path.join(ROOT, 'commands', 'gsd');
 const EN_CATALOG_PATH = path.join(ROOT, 'get-shit-done', 'locales', 'en', 'claude-skills.json');
 const ZH_CATALOG_PATH = path.join(ROOT, 'get-shit-done', 'locales', 'zh-CN', 'claude-skills.json');
-const FIRST_BATCH = [
-  'gsd-new-milestone',
-  'gsd-progress',
-  'gsd-discuss-phase',
-  'gsd-plan-phase',
-  'gsd-execute-phase',
-  'gsd-next',
-];
 const FORBIDDEN_KEY_FRAGMENTS = ['body', 'flag', 'path', 'tool', 'allowed-tools', 'argument-hint', 'name'];
 
 function walkCommands(dir) {
@@ -88,17 +80,27 @@ describe('claude skill display catalog contract', () => {
     }
   });
 
-  test('zh-CN claude-skills catalog stays at the official first-batch six-skill boundary', () => {
+  test('zh-CN claude-skills catalog covers the current command inventory exactly', () => {
     const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
+    const expectedSkills = expectedEnglishSkills();
 
-    assert.equal(FIRST_BATCH.length, 6, 'first-batch contract should stay at six skills');
-    assert.deepStrictEqual(extractSkillIds(chineseCatalog), [...FIRST_BATCH].sort());
+    assert.deepStrictEqual(extractSkillIds(chineseCatalog), expectedSkills);
   });
 
-  test('zh-CN first-batch values are non-empty Chinese strings with shorter short-descriptions', () => {
+  test('zh-CN claude-skills catalog provides exactly one display pair per skill', () => {
+    const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
+    const expectedKeys = expectedEnglishSkills().flatMap((skill) => [
+      `claude-skills.${skill}.description`,
+      `claude-skills.${skill}.short-description`,
+    ]).sort();
+
+    assert.deepStrictEqual(Object.keys(chineseCatalog).sort(), expectedKeys);
+  });
+
+  test('zh-CN values are non-empty Chinese strings with shorter short-descriptions', () => {
     const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
 
-    for (const skill of FIRST_BATCH) {
+    for (const skill of expectedEnglishSkills()) {
       const { description, shortDescription } = getDisplayPair(chineseCatalog, 'claude-skills', skill);
 
       assert.equal(typeof description, 'string');

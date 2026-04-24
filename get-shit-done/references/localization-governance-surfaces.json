@@ -173,31 +173,23 @@
       ]
     },
     {
-      "group": "claude-skill-display-localization-first-batch",
+      "group": "claude-skill-display-localization-full",
       "disposition": "blocker",
       "owner_hint": "claude-runtime-maintainers",
-      "reason": "Phase 15 locks the first-batch six Claude `claude-skills` entries as the official zh-CN promised subset, while the full 82-skill English baseline stays under inventory regression coverage and the wider inventory is not upgraded to a hard gate.",
-      "scope_skills": [
-        "gsd-new-milestone",
-        "gsd-progress",
-        "gsd-discuss-phase",
-        "gsd-plan-phase",
-        "gsd-execute-phase",
-        "gsd-next"
-      ],
+      "reason": "v2.1 upgrades Claude `claude-skills` zh-CN display metadata from the original six-skill subset to full current command-inventory coverage, while preserving English canonical command bodies and display-layer-only localization.",
       "surfaces": [
         {
-          "id": "claude-skill-display-catalog-en-first-batch",
+          "id": "claude-skill-display-catalog-en-full",
           "path": "get-shit-done/locales/en/claude-skills.json",
-          "canonical_source": "English Claude display catalog",
-          "expected_check": "English catalog keeps the canonical display pair for the official first-batch six-skill promised subset without upgrading the wider 82-skill inventory to blocker scope",
+          "canonical_source": "commands/gsd/*.md and English Claude display catalog",
+          "expected_check": "English catalog covers the current command inventory with exactly one display pair per skill",
           "verification_entry": "tests/claude-skill-display-localization.test.cjs"
         },
         {
-          "id": "claude-skill-display-catalog-zh-CN-first-batch",
+          "id": "claude-skill-display-catalog-zh-CN-full",
           "path": "get-shit-done/locales/zh-CN/claude-skills.json",
-          "canonical_source": "First-batch zh-CN Claude display catalog",
-          "expected_check": "Catalog stays at the official six-skill promised subset and localized values remain inside the display-layer field boundary",
+          "canonical_source": "Full zh-CN Claude display catalog",
+          "expected_check": "Catalog key set matches the current command inventory and localized values remain inside the display-layer field boundary",
           "verification_entry": "tests/claude-skill-display-localization.test.cjs"
         }
       ]

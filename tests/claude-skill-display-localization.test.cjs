@@ -6,23 +6,16 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
+const COMMANDS_ROOT = path.join(ROOT, 'commands', 'gsd');
 const EN_CATALOG_PATH = path.join(ROOT, 'get-shit-done', 'locales', 'en', 'claude-skills.json');
 const ZH_CATALOG_PATH = path.join(ROOT, 'get-shit-done', 'locales', 'zh-CN', 'claude-skills.json');
-const FIRST_BATCH = [
-  'gsd-new-milestone',
-  'gsd-progress',
-  'gsd-discuss-phase',
-  'gsd-plan-phase',
-  'gsd-execute-phase',
-  'gsd-next',
-];
 const EXPECTED_PREFIXES = {
   'gsd-new-milestone': ['启动', '启动'],
   'gsd-progress': ['检查', '检查'],
-  'gsd-discuss-phase': ['在规划前收集', '收集'],
+  'gsd-discuss-phase': ['规划前', '规划前'],
   'gsd-plan-phase': ['创建', '创建'],
   'gsd-execute-phase': ['按 wave 执行', '按 wave 执行'],
-  'gsd-next': ['根据当前 GSD 状态自动推进', '自动推进'],
+  'gsd-next': ['根据当前 GSD 工作流自动推进', '自动推进'],
 };
 const FORBIDDEN_KEY_FRAGMENTS = ['body', 'flag', 'path', 'tool', 'allowed-tools', 'argument-hint', 'name'];
 const FORBIDDEN_VALUE_FRAGMENTS = [
@@ -37,12 +30,34 @@ function readCatalog(catalogPath) {
   return JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 }
 
+function walkCommands(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkCommands(full));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      out.push(full);
+    }
+  }
+  return out.sort();
+}
+
+function expectedLocalizedSkills() {
+  return walkCommands(COMMANDS_ROOT).map((file) => {
+    const relative = path.relative(COMMANDS_ROOT, file).replace(/\\/g, '/').replace(/\.md$/, '');
+    return `gsd-${relative.replace(/\//g, '-')}`;
+  }).sort();
+}
+
 function extractSkillIds(catalog) {
   return [...new Set(Object.keys(catalog).map((key) => key.split('.')[1]))].sort();
 }
 
 function expectedLocalizedKeys() {
-  return FIRST_BATCH.flatMap((skill) => [
+  return expectedLocalizedSkills().flatMap((skill) => [
     `claude-skills.${skill}.description`,
     `claude-skills.${skill}.short-description`,
   ]).sort();
@@ -56,15 +71,14 @@ function getDisplayPair(catalog, skill) {
 }
 
 describe('claude skill display localization catalog', () => {
-  test('zh-CN catalog stays at the official first-batch six-skill boundary', () => {
+  test('zh-CN catalog covers the current command inventory exactly', () => {
     const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
 
-    assert.equal(FIRST_BATCH.length, 6, 'first-batch contract should stay at six skills');
-    assert.deepStrictEqual(extractSkillIds(chineseCatalog), [...FIRST_BATCH].sort());
+    assert.deepStrictEqual(extractSkillIds(chineseCatalog), expectedLocalizedSkills());
     assert.deepStrictEqual(Object.keys(chineseCatalog).sort(), expectedLocalizedKeys());
   });
 
-  test('English catalog provides the same display-pair keys for the promised subset', () => {
+  test('English catalog provides the same display-pair keys as zh-CN', () => {
     const englishCatalog = readCatalog(EN_CATALOG_PATH);
 
     for (const key of expectedLocalizedKeys()) {
@@ -88,7 +102,7 @@ describe('claude skill display localization catalog', () => {
     const englishCatalog = readCatalog(EN_CATALOG_PATH);
     const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
 
-    for (const skill of FIRST_BATCH) {
+    for (const skill of expectedLocalizedSkills()) {
       const { description, shortDescription } = getDisplayPair(chineseCatalog, skill);
       const englishPair = getDisplayPair(englishCatalog, skill);
 
@@ -107,10 +121,10 @@ describe('claude skill display localization catalog', () => {
     }
   });
 
-  test('zh-CN wording stays action-oriented and avoids copied summary-doc prose', () => {
+  test('priority zh-CN wording stays action-oriented and avoids copied summary-doc prose', () => {
     const chineseCatalog = readCatalog(ZH_CATALOG_PATH);
 
-    for (const skill of FIRST_BATCH) {
+    for (const skill of Object.keys(EXPECTED_PREFIXES)) {
       const { description, shortDescription } = getDisplayPair(chineseCatalog, skill);
       const [descriptionPrefix, shortPrefix] = EXPECTED_PREFIXES[skill];
 
