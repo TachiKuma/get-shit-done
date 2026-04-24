@@ -1,5 +1,28 @@
-# Milestones
+﻿# Milestones
 
+## v2.0 GSD-CN 中文发行版基线 (Shipped: 2026-04-24)
+
+**Phases completed:** 2 phases (Phases 19-20), 7 plans
+
+**Key accomplishments:**
+
+1. 将项目主线正式切换为 GSD-CN 非官方简体中文发行版，并锁定 zh-CN 第一阶段范围
+2. 建立 official .planning 与 GSD-CN .planning-gsdcn 的状态根隔离，CLI/SDK contract 对齐
+3. 参数化 installer/runtime namespace，隔离 manifest、patches、pristine、update cache、uninstall 与 hook 配置
+4. 将 README/docs/help surfaces 切换为中文主叙事与 gsdcn 用户入口，并用 prefix/parity tests 锁定边界
+5. 增加 --gsdcn / --brand gsdcn 安装入口，关闭安装 brand 激活、state-root E2E 与 Cline/runtime surface audit gaps
+6. 通过 Phase 20 focused gate（64 tests pass）和 milestone re-audit（7/7 requirements satisfied）
+
+**Known deferred items at close:** 2
+- locale-parity: ja-JP / ko-KR / pt-BR 同步发行 → deferred
+- ccb-specialization: CCB 深度特化 → deferred
+
+**Known technical debt at close:** 1
+- SDK dist/	sc 环境前置导致 	ests/planning-root-namespace.test.cjs 不能在当前环境运行完整补充检查；Phase 20 直接 E2E 证据已覆盖归档门禁
+
+**Archive:** .planning/milestones/v2.0-ROADMAP.md
+
+---
 ## v1.2 债务清理与 Claude Skills 本地化 (Shipped: 2026-04-21)
 
 **Phases completed:** 4 phases (Phases 13-15，含 14.1), 11 plans
@@ -64,3 +87,4 @@
 - Fail-fast governance verifier topology, split command-summary blocker or warning routing, and automated planning-config truth-source drift protection
 
 ---
+

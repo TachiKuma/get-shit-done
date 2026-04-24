@@ -103,12 +103,15 @@ const INSTALLER_BRAND_CONFIGS = {
 };
 
 /**
- * Resolve the active installer brand from GSD_BRAND env var.
+ * Resolve the active installer brand from CLI args or GSD_BRAND env var.
  * Falls back to 'official' for any unrecognized value to preserve
  * backward compatibility with all existing official GSD installs.
  */
-function resolveInstallerBrand() {
-  const raw = (process.env.GSD_BRAND || '').toLowerCase().trim();
+function resolveInstallerBrand(argv = process.argv.slice(2), env = process.env) {
+  const args = Array.isArray(argv) ? argv : [];
+  const brandFlagIndex = args.indexOf('--brand');
+  const flagBrand = brandFlagIndex >= 0 ? args[brandFlagIndex + 1] : null;
+  const raw = (args.includes('--gsdcn') ? 'gsdcn' : flagBrand || env.GSD_BRAND || '').toLowerCase().trim();
   return INSTALLER_BRAND_CONFIGS[raw] || INSTALLER_BRAND_CONFIGS.official;
 }
 
@@ -6280,14 +6283,16 @@ function install(isGlobal, runtime = 'claude') {
   if (isCline) {
     // Cline uses .clinerules — generate a rules file with GSD system instructions
     const clinerulesDest = path.join(targetDir, '.clinerules');
+    const commandPrefix = INSTALLER_BRAND.cmdPrefix;
+    const planningRootName = INSTALLER_BRAND.brandId === 'gsdcn' ? '.planning-gsdcn' : '.planning';
     const clinerules = [
       '# GSD — Get Shit Done',
       '',
       '- GSD workflows live in `get-shit-done/workflows/`. Load the relevant workflow when',
-      '  the user runs a `/gsd-*` command.',
+      `  the user runs a \`/${commandPrefix}-*\` command.`,
       '- GSD agents live in `agents/`. Use the matching agent when spawning subagents.',
       '- GSD tools are at `get-shit-done/bin/gsd-tools.cjs`. Run with `node`.',
-      '- Planning artifacts live in `.planning/`. Never edit them outside a GSD workflow.',
+      `- Planning artifacts live in \`${planningRootName}/\`. Never edit them outside a GSD workflow.`,
       '- Do not apply GSD workflows unless the user explicitly asks for them.',
       '- When a GSD command triggers a deliverable (feature, fix, docs), offer the next',
       '  step to the user using Cline\'s ask_user tool after completing it.',
@@ -6689,18 +6694,19 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'cline') program = 'Cline';
   if (runtime === 'qwen') program = 'Qwen Code';
 
-  let command = '/gsd-new-project';
-  if (runtime === 'opencode') command = '/gsd-new-project';
-  if (runtime === 'kilo') command = '/gsd-new-project';
-  if (runtime === 'codex') command = '$gsd-new-project';
-  if (runtime === 'copilot') command = '/gsd-new-project';
-  if (runtime === 'antigravity') command = '/gsd-new-project';
-  if (runtime === 'cursor') command = 'gsd-new-project (mention the skill name)';
-  if (runtime === 'windsurf') command = '/gsd-new-project';
-  if (runtime === 'augment') command = '/gsd-new-project';
-  if (runtime === 'trae') command = '/gsd-new-project';
-  if (runtime === 'cline') command = '/gsd-new-project';
-  if (runtime === 'qwen') command = '/gsd-new-project';
+  const commandPrefix = INSTALLER_BRAND.cmdPrefix;
+  let command = `/${commandPrefix}-new-project`;
+  if (runtime === 'opencode') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'kilo') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'codex') command = `$${commandPrefix}-new-project`;
+  if (runtime === 'copilot') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'antigravity') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'cursor') command = `${commandPrefix}-new-project (mention the skill name)`;
+  if (runtime === 'windsurf') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'augment') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'trae') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'cline') command = `/${commandPrefix}-new-project`;
+  if (runtime === 'qwen') command = `/${commandPrefix}-new-project`;
   console.log(`
   ${green}Done!${reset} Open a blank directory in ${program} and run ${cyan}${command}${reset}.
 
@@ -7253,3 +7259,4 @@ if (isRequiredForTests) {
   }
 
 } // end of else block for GSD_TEST_MODE
+

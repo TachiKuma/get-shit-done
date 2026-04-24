@@ -1,4 +1,4 @@
-# GSD-CN 中文发行版与上游兼容层
+﻿# GSD-CN 中文发行版与上游兼容层
 
 ## What This Is
 
@@ -12,14 +12,14 @@
 
 ## Current State
 
-**Active: v2.0 — Phase 19 Complete (2026-04-23)**
+**Shipped: v2.0 — GSD-CN 中文发行版基线 (2026-04-24)**
 
 当前 `.planning` 主线已从”多语言本地化框架维护”切换为 `GSD-CN` 中文发行版主线。
 
 **Current planning state:**
-- Phase 19 已完整执行并验证通过：4/4 plans，178 测试全部通过，verification passed
-- `.planning-gsdcn` planning-root substrate、installer namespace 隔离、GSD-CN 中文主 README/docs、parity/coexistence blocker suite 均已落地
-- v2.0 首个 milestone phase 完成，GSD-CN 产品定义与兼容边界已锁定
+- v2.0 已完整执行并通过 milestone audit：Phase 19 + Phase 20，7/7 plans，requirements 7/7 satisfied
+- `.planning-gsdcn` planning-root substrate、installer namespace 隔离、GSD-CN 中文主 README/docs、parity/coexistence blocker suite、`--gsdcn` install-brand activation 与 E2E evidence 均已落地
+- v2.0 milestone 已归档准备完成，下一步应通过 `$gsd-new-milestone` 定义后续目标
 - v1.0-v1.2 的本地化与上游同步成果继续作为新主线的工程基础
 - v1.3 证据链补齐工作不再作为当前主线目标，保留为 superseded milestone context
 
@@ -126,4 +126,5 @@ This document evolves at milestone and phase transitions.
 3. Re-check whether deferred CCB and extra-language items should remain deferred
 
 ---
-*Last updated: 2026-04-23 — v2.0 Phase 19 execution complete; 178 tests pass, verification passed*
+*Last updated: 2026-04-24 — v2.0 shipped; milestone audit passed; ready for next milestone definition*
+

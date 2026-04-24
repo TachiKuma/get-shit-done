@@ -1,4 +1,4 @@
-# Retrospective
+﻿# Retrospective
 
 ## Milestone: v1.0 — 多语言本地化框架 MVP
 
@@ -157,3 +157,32 @@
 | Requirements hit rate | 100% (10/10) | 100% (10/10) | 100% (12/12) |
 | Residual test failures | 0 | 6 (controlled, routed to v1.2) | 0 |
 | Audit cycles needed | 1 | 2 (Phase 12 gap-closure required re-audit) | 2 (Phase 13 VALIDATION gap closed before re-audit passed) |
+
+---
+
+## Milestone: v2.0 — GSD-CN 中文发行版基线
+
+**Shipped:** 2026-04-24
+**Phases:** 2 | **Plans:** 7
+
+### What Was Built
+
+- Phase 19: 锁定 GSD-CN 产品定义、zh-CN 第一阶段边界、gsdcn 用户可见入口、官方/GSD-CN 共存约束与行为一致性边界
+- Phase 20: 补齐 --gsdcn install-brand activation、.planning-gsdcn state-root E2E、Cline/runtime surface contract 与 re-audit evidence
+
+### What Worked
+
+- **Audit-driven gap closure**: milestone audit 直接指出 install-brand E2E 缺口，Phase 20 以最小范围关闭并重审通过
+- **Brand-aware seam**: GSD_BRAND 既保留自动化入口，又通过 --gsdcn 给用户明确可复制路径
+- **Focused gate layering**: Phase 20 新增 3 个直接 E2E/contract tests，并复用 Phase 19 namespace/behavior guard tests，避免扩大 scope
+
+### What Was Inefficient
+
+- **Phase 19 evidence gap**: 19-01/19-03 summary 需要从 git history 重建，说明执行时 summary 产物未严格落盘
+- **SDK build environment**: 当前环境缺少 	sc，导致 SDK dist 前置测试无法作为归档 gate 的完整补充证据
+
+### Key Lessons
+
+- 用户文档入口必须与 runtime brand 激活机制同测，否则 namespace substrate 只能证明“可用”，不能证明“用户路径闭环”
+- VERIFICATION.md / SUMMARY.md 应在每个 plan 完成时同步生成，避免 milestone close 前追溯补证据
+- 对 fork/发行版项目，official default compatibility 与 fork brand activation 应分别用测试锁定
