@@ -6,12 +6,248 @@
 
 ## 目录
 
+- [端到端操作演示](#端到端操作演示)
 - [工作流图解](#工作流图解)
 - [命令参考](#命令参考)
 - [配置参考](#配置参考)
 - [使用示例](#使用示例)
 - [故障排除](#故障排除)
 - [恢复快速参考](#恢复快速参考)
+
+---
+
+## 端到端操作演示
+
+本演示展示了一个典型单阶段项目中 GSD 各阶段的完整串联——一个用于验证 webhook 签名的小型 Node.js REST API。跟随本演示，你将理解每个命令的作用、它创建了什么文件，以及下一个命令如何使用这些文件。
+
+### 1. 创建项目
+
+```
+/gsd-new-project
+```
+
+GSD 会询问你的想法，启动并行研究 Agent，提取需求，并创建路线图。在写任何代码之前，你需要先批准路线图。
+
+**输出示例（节选）：**
+
+```
+> 你在构建什么？
+  一个用于 Express 应用的 webhook 签名验证中间件。
+
+> 目标用户是谁？
+  集成第三方 webhook（Stripe、GitHub、Shopify）的后端开发者。
+
+[研究 Agent 并行运行中...]
+[需求提取中...]
+
+路线图（1 个阶段）：
+  阶段 1 — 核心中间件：HMAC-SHA256 签名验证、
+             时间安全比较、可配置的容差窗口。
+
+批准？[y/n]
+```
+
+**创建的文件：**
+
+```
+.planning/
+  PROJECT.md          # "Webhook 验证中间件 — Express, HMAC-SHA256..."
+  REQUIREMENTS.md     # REQ-001: 验证签名头; REQ-002: 时间安全...
+  ROADMAP.md          # 阶段 1 状态: pending
+  STATE.md            # 会话记忆，当前进度
+```
+
+`ROADMAP.md` 节选：
+```markdown
+## Phase 1 — Core middleware
+**Status:** pending
+**Goal:** HMAC-SHA256 signature validation with timing-safe compare and a
+configurable replay-protection tolerance window.
+**Requirements:** REQ-001, REQ-002, REQ-003
+```
+
+### 2. 讨论并规划阶段
+
+```
+/gsd-discuss-phase 1
+```
+
+GSD 读取阶段目标，并在开始规划前询问你的实现偏好。这是你塑造"如何构建"而不仅是"构建什么"的关键环节。
+
+```
+> 无效签名应如何处理？
+  立即拒绝并返回 401，记录原始 header 以便调试。
+
+> 容差窗口应支持按路由配置还是全局配置？
+  全局配置，但允许通过中间件选项进行逐路由覆盖。
+
+> HMAC 有什么库偏好？
+  仅用 Node 内置 crypto——不引入额外依赖。
+```
+
+**创建的文件：** `.planning/phases/01-core-middleware/CONTEXT.md`
+
+`CONTEXT.md` 节选：
+```markdown
+## Implementation Decisions
+- Invalid signatures → 401, log raw header
+- Tolerance window → global default, per-route override via options object
+- HMAC library → Node built-in crypto (no external deps)
+- Error format → { error: "invalid_signature", ts: <epoch> }
+```
+
+现在规划阶段：
+
+```
+/gsd-plan-phase 1
+```
+
+GSD 启动四个并行研究 Agent（技术栈、功能、架构、陷阱），然后 Planner 读取 `CONTEXT.md` 和研究结果，创建原子任务计划。Plan-checker 验证每个计划能达成阶段目标后才保存。
+
+**创建的文件：**
+
+```
+.planning/phases/01-core-middleware/
+  RESEARCH.md         # 发现：crypto.timingSafeEqual 文档，重放攻击模式...
+  01-01-PLAN.md       # 任务：创建 validateSignature() 核心函数
+  01-02-PLAN.md       # 任务：Express 中间件封装 + 错误处理
+```
+
+`01-01-PLAN.md` 节选：
+```xml
+<task type="auto">
+  <name>Create validateSignature core function</name>
+  <files>src/validate.js, src/validate.test.js</files>
+  <action>
+    Use crypto.createHmac('sha256', secret).update(rawBody).digest('hex').
+    Compare with crypto.timingSafeEqual() — never === or ==.
+    Accept tolerance window in ms; reject if |timestamp - now| exceeds it.
+  </action>
+  <verify>npm test -- --grep "validateSignature"</verify>
+  <done>All timing-safe comparison tests pass; replay outside window returns false</done>
+</task>
+```
+
+### 3. 执行
+
+```
+/gsd-execute-phase 1
+```
+
+GSD 将计划按波次分组（独立计划并行，依赖计划串行），为每个计划启动独立的 200k 上下文 Executor，并原子提交每个任务。
+
+```
+Wave 1（并行）：
+  [Executor A] → 01-01-PLAN.md（核心函数）  ✓ 已提交
+  [Executor B] → 01-02-PLAN.md（中间件）      ✓ 已提交
+
+[Verifier] 根据阶段目标检查代码库...
+  REQ-001 validateSignature() ✓
+  REQ-002 时间安全比较 ✓
+  REQ-003 容差窗口    ✓
+  状态: PASS
+```
+
+**执行后 Git 历史：**
+
+```
+a1b2c3d feat(01-01): implement validateSignature with timingSafeEqual
+d4e5f6g feat(01-02): add Express middleware wrapper and 401 error format
+h7i8j9k chore(01): phase 1 verification — all requirements met
+```
+
+**创建的文件：**
+
+```
+.planning/phases/01-core-middleware/
+  01-01-SUMMARY.md    # "实现了 validateSignature()，47 行，测试通过"
+  01-02-SUMMARY.md    # "中间件封装了验证器，401 时记录原始 header"
+  VERIFICATION.md     # REQ-001 ✓, REQ-002 ✓, REQ-003 ✓ — PASS
+```
+
+`STATE.md` 自动更新以反映新的阶段状态：
+
+```markdown
+## Current Position
+Phase 1 — Core middleware: executed, pending verify
+```
+
+### 4. 验证
+
+```
+/gsd-verify-work 1
+```
+
+GSD 从阶段目标中提取可测试的交付物，并逐一引导你验证。
+
+```
+[1/3] 你能 require 中间件并将其挂载到 Express 路由吗？
+> yes
+
+[2/3] 携带有效签名的请求是否返回 200？
+> yes
+
+[3/3] 携带无效签名的请求是否返回 401 并包含 { error: "invalid_signature" }？
+> no——我得到的是 500
+
+[诊断中...]
+根本原因：当缓冲区长度不同时，中间件捕获了 crypto.timingSafeEqual TypeError。
+修复方案：比较前将缓冲区规范化为相同长度。
+
+修复计划已创建：.planning/phases/01-core-middleware/01-03-PLAN.md
+运行 /gsd-execute-phase 1 来应用修复。
+```
+
+重新执行并重新验证后：
+
+```
+3 项检查全部通过。阶段 1 已验证。
+```
+
+**创建的文件：** `.planning/phases/01-core-middleware/UAT.md`
+
+### 下一步
+
+阶段验证完成后，发布它：
+
+```
+/gsd-ship 1          # 创建带自动生成说明的 PR
+```
+
+对于多阶段项目，重复以下循环：
+
+```
+/gsd-discuss-phase 2
+/gsd-plan-phase 2
+/gsd-execute-phase 2
+/gsd-verify-work 2
+```
+
+或者让 GSD 自动决定下一步：
+
+```
+/gsd-next
+```
+
+所有阶段完成后：
+
+```
+/gsd-audit-milestone     # 验证所有需求已交付
+/gsd-complete-milestone  # 归档，打 release tag
+```
+
+**本演示涉及的相关标志：**
+
+| 标志 | 命令 | 使用时机 |
+| ---- | ------- | -------- |
+| `--auto` | `/gsd-new-project` | 跳过交互式提问，从 PRD 文件摄取 |
+| `--research` | `/gsd-quick` | 为临时任务添加研究 Agent |
+| `--validate` | `/gsd-quick` | 添加计划检查和执行后验证 |
+| `--chain` | `/gsd-discuss-phase` | 自动串联 discuss → plan → execute，无需手动停止 |
+| `--skip-research` | `/gsd-plan-phase` | 领域已熟悉时跳过研究 Agent |
+| `--draft` | `/gsd-ship` | 创建草稿 PR 而非就绪待审 PR |
+
+完整命令参考（含所有标志），请参阅 [`docs/COMMANDS.md`](../COMMANDS.md)。配置选项（模型配置文件、工作流 Agent、Git 分支管理），请参阅 [`docs/CONFIGURATION.md`](../CONFIGURATION.md)。
 
 ---
 
