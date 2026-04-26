@@ -7061,11 +7061,16 @@ function handleStatusline(settings, isInteractive, callback) {
 
   ${cyan}1${reset}) Keep existing
   ${cyan}2${reset}) Replace with GSD statusline
+  ${cyan}0${reset}) 退出安装
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
     rl.close();
     const choice = answer.trim() || '1';
+    if (choice === '0' || choice.toLowerCase() === 'q') {
+      console.log(`\n  ${yellow}已取消安装${reset}\n`);
+      process.exit(0);
+    }
     callback(choice === '2');
   });
 }
@@ -7084,7 +7089,7 @@ function promptRuntime(callback) {
   rl.on('close', () => {
     if (!answered) {
       answered = true;
-      console.log(`\n  ${yellow}Installation cancelled${reset}\n`);
+      console.log(`\n  ${yellow}已取消安装${reset}\n`);
       process.exit(0);
     }
   });
@@ -7107,7 +7112,7 @@ function promptRuntime(callback) {
   };
   const allRuntimes = ['claude', 'antigravity', 'augment', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'gemini', 'kilo', 'opencode', 'qwen', 'trae', 'windsurf'];
 
-  console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
+  console.log(`  ${yellow}请选择要安装的运行时（可多选）：${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
   ${cyan}2${reset}) Antigravity  ${dim}(~/.gemini/antigravity)${reset}
   ${cyan}3${reset}) Augment      ${dim}(~/.augment)${reset}
   ${cyan}4${reset}) Cline        ${dim}(.clinerules)${reset}
@@ -7121,15 +7126,22 @@ function promptRuntime(callback) {
   ${cyan}12${reset}) Qwen Code    ${dim}(~/.qwen)${reset}
   ${cyan}13${reset}) Trae         ${dim}(~/.trae)${reset}
   ${cyan}14${reset}) Windsurf     ${dim}(~/.codeium/windsurf)${reset}
-  ${cyan}15${reset}) All
+  ${cyan}15${reset}) 全部安装
+  ${cyan}0${reset})  退出安装
 
-  ${dim}Select multiple: 1,2,6 or 1 2 6${reset}
+  ${dim}多选示例：1,2,6 或 1 2 6${reset}
 `);
 
-  rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
+  rl.question(`  请输入选项 ${dim}[1]${reset}: `, (answer) => {
     answered = true;
     rl.close();
     const input = answer.trim() || '1';
+
+    // Exit shortcut
+    if (input === '0' || input.toLowerCase() === 'q') {
+      console.log(`\n  ${yellow}已取消安装${reset}\n`);
+      process.exit(0);
+    }
 
     // "All" shortcut
     if (input === '15') {
@@ -7171,7 +7183,7 @@ function promptLocation(runtimes) {
   rl.on('close', () => {
     if (!answered) {
       answered = true;
-      console.log(`\n  ${yellow}Installation cancelled${reset}\n`);
+      console.log(`\n  ${yellow}已取消安装${reset}\n`);
       process.exit(0);
     }
   });
@@ -7183,14 +7195,19 @@ function promptLocation(runtimes) {
 
   const localExamples = runtimes.map(r => `./${getDirName(r)}`).join(', ');
 
-  console.log(`  ${yellow}Where would you like to install?${reset}\n\n  ${cyan}1${reset}) Global ${dim}(${pathExamples})${reset} - available in all projects
-  ${cyan}2${reset}) Local  ${dim}(${localExamples})${reset} - this project only
+  console.log(`  ${yellow}请选择安装位置：${reset}\n\n  ${cyan}1${reset}) 全局安装 ${dim}(${pathExamples})${reset} - 所有项目可用
+  ${cyan}2${reset}) 本地安装 ${dim}(${localExamples})${reset} - 仅限当前项目
+  ${cyan}0${reset}) 退出安装
 `);
 
-  rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
+  rl.question(`  请输入选项 ${dim}[1]${reset}: `, (answer) => {
     answered = true;
     rl.close();
     const choice = answer.trim() || '1';
+    if (choice === '0' || choice.toLowerCase() === 'q') {
+      console.log(`\n  ${yellow}已取消安装${reset}\n`);
+      process.exit(0);
+    }
     const isGlobal = choice !== '2';
     installAllRuntimes(runtimes, isGlobal, true);
   });
