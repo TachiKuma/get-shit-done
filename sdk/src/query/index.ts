@@ -32,6 +32,7 @@ import {
   stateRecordMetric, stateUpdateProgress, stateAddDecision,
   stateAddBlocker, stateResolveBlocker, stateRecordSession,
   stateSignalWaiting, stateSignalResume, stateValidate, stateSync, statePrune,
+  stateMilestoneSwitch, stateAddRoadmapEvolution,
 } from './state-mutation.js';
 import {
   configSet, configSetModelProfile, configNewProject, configEnsureSection,
@@ -39,6 +40,8 @@ import {
 import { commit, checkCommit } from './commit.js';
 import { templateFill, templateSelect } from './template.js';
 import { verifyPlanStructure, verifyPhaseCompleteness, verifyArtifacts, verifyCommits, verifyReferences, verifySummary, verifyPathExists } from './verify.js';
+import { decisionsParse } from './decisions.js';
+import { checkDecisionCoveragePlan, checkDecisionCoverageVerify } from './check-decision-coverage.js';
 import { verifyKeyLinks, validateConsistency, validateHealth, validateAgents } from './validate.js';
 import {
   phaseAdd, phaseAddBatch, phaseInsert, phaseRemove, phaseComplete,
@@ -56,7 +59,7 @@ import { agentSkills } from './skills.js';
 import { requirementsMarkComplete, roadmapAnnotateDependencies } from './roadmap.js';
 import { roadmapUpdatePlanProgress } from './roadmap-update-plan-progress.js';
 import { statePlannedPhase } from './state-mutation.js';
-import { verifySchemaDrift } from './verify.js';
+import { verifySchemaDrift, verifyCodebaseDrift } from './verify.js';
 import {
   todoMatchPhase, statsJson, statsTable, progressBar, progressTable, listTodos, todoComplete,
 } from './progress.js';
@@ -131,6 +134,8 @@ export const QUERY_MUTATION_COMMANDS = new Set<string>([
   'state.signal-resume', 'state signal-resume',
   'state.sync', 'state sync',
   'state.prune', 'state prune',
+  'state.milestone-switch', 'state milestone-switch',
+  'state.add-roadmap-evolution', 'state add-roadmap-evolution',
   'frontmatter.set', 'frontmatter.merge', 'frontmatter.validate', 'frontmatter validate',
   'config-set', 'config-set-model-profile', 'config-new-project', 'config-ensure-section',
   'commit', 'check-commit', 'commit-to-subrepo',
@@ -319,6 +324,10 @@ export function createRegistry(
   registry.register('state.validate', stateValidate);
   registry.register('state.sync', stateSync);
   registry.register('state.prune', statePrune);
+  registry.register('state.milestone-switch', stateMilestoneSwitch);
+  registry.register('state.add-roadmap-evolution', stateAddRoadmapEvolution);
+  registry.register('state milestone-switch', stateMilestoneSwitch);
+  registry.register('state add-roadmap-evolution', stateAddRoadmapEvolution);
   registry.register('state signal-waiting', stateSignalWaiting);
   registry.register('state signal-resume', stateSignalResume);
   registry.register('state validate', stateValidate);
@@ -359,6 +368,14 @@ export function createRegistry(
   registry.register('verify-path-exists', verifyPathExists);
   registry.register('verify.path-exists', verifyPathExists);
   registry.register('verify path-exists', verifyPathExists);
+
+  // Decision coverage gates (issue #2492)
+  registry.register('decisions.parse', decisionsParse);
+  registry.register('decisions parse', decisionsParse);
+  registry.register('check.decision-coverage-plan', checkDecisionCoveragePlan);
+  registry.register('check decision-coverage-plan', checkDecisionCoveragePlan);
+  registry.register('check.decision-coverage-verify', checkDecisionCoverageVerify);
+  registry.register('check decision-coverage-verify', checkDecisionCoverageVerify);
   registry.register('validate.consistency', validateConsistency);
   registry.register('validate consistency', validateConsistency);
   registry.register('validate.health', validateHealth);
@@ -460,6 +477,8 @@ export function createRegistry(
   registry.register('state planned-phase', statePlannedPhase);
   registry.register('verify.schema-drift', verifySchemaDrift);
   registry.register('verify schema-drift', verifySchemaDrift);
+  registry.register('verify.codebase-drift', verifyCodebaseDrift);
+  registry.register('verify codebase-drift', verifyCodebaseDrift);
   registry.register('todo.match-phase', todoMatchPhase);
   registry.register('todo match-phase', todoMatchPhase);
   registry.register('list-todos', listTodos);

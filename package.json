@@ -1,9 +1,10 @@
 {
   "name": "gsdcn",
-  "version": "1.37.1",
+  "version": "1.38.5",
   "description": "GSD-CN: an unofficial Simplified Chinese distribution of get-shit-done with upstream-compatible behavior.",
   "bin": {
-    "gsdcn": "bin/gsdcn.js"
+    "gsdcn": "bin/gsdcn.js",
+    "gsd-sdk": "bin/gsd-sdk.js"
   },
   "files": [
     "bin",
@@ -15,6 +16,7 @@
     "sdk/src",
     "!sdk/src/**/*.test.ts",
     "sdk/prompts",
+    "sdk/dist",
     "sdk/package.json",
     "sdk/package-lock.json",
     "sdk/tsconfig.json"
@@ -44,14 +46,20 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.84",
+    "ws": "^8.20.0"
+  },
   "devDependencies": {
-    "c8": "^11.0.0",
-    "esbuild": "^0.24.0",
-    "vitest": "^4.1.2"
+    "c8": "^11.0.0"
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
-    "prepublishOnly": "npm run build:hooks",
+    "build:sdk": "cd sdk && npm ci && npm run build",
+    "prepublishOnly": "npm run build:hooks && npm run build:sdk",
+    "pretest": "npm run build:sdk",
+    "pretest:coverage": "npm run build:sdk",
+    "lint:tests": "node scripts/lint-no-source-grep.cjs",
     "test": "node scripts/run-tests.cjs",
     "test:gsdcn-release-gate": "node scripts/run-gsdcn-release-gate.cjs",
     "test:coverage": "c8 --check-coverage --lines 70 --reporter text --include 'get-shit-done/bin/lib/*.cjs' --exclude 'tests/**' --all node scripts/run-tests.cjs"

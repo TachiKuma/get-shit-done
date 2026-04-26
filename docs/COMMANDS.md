@@ -564,6 +564,24 @@ Interactive command center for managing multiple phases from one terminal.
 /gsdcn-manager                        # Open command center dashboard
 ```
 
+**Checkpoint Heartbeats (#2410):**
+
+Background `execute-phase` runs emit `[checkpoint]` markers at every wave and plan
+boundary so the Claude API SSE stream never idles long enough to trigger
+`Stream idle timeout - partial response received` on multi-plan phases. The
+format is:
+
+```
+[checkpoint] phase {N} wave {W}/{M} starting, {count} plan(s), {P}/{Q} plans done
+[checkpoint] phase {N} wave {W}/{M} plan {plan_id} starting ({P}/{Q} plans done)
+[checkpoint] phase {N} wave {W}/{M} plan {plan_id} complete ({P}/{Q} plans done)
+[checkpoint] phase {N} wave {W}/{M} complete, {P}/{Q} plans done ({ok}/{count} ok)
+```
+
+If a background phase fails partway through, grep the transcript for `[checkpoint]`
+to see the last confirmed boundary. The manager's background-completion handler
+uses these markers to report partial progress when an agent errors out.
+
 **Manager Passthrough Flags:**
 
 Configure per-step flags in `.planning/config.json` under `manager.flags`. These flags are appended to each dispatched command:
@@ -1039,11 +1057,72 @@ Manage parallel workstreams for concurrent work on different milestone areas.
 
 ### `/gsdcn-settings`
 
-Interactive configuration of workflow toggles and model profile.
+Interactive configuration of workflow toggles and model profile. Questions are grouped into six visual sections:
+
+- **Planning** — Research, Plan Checker, Pattern Mapper, Nyquist, UI Phase, UI Gate, AI Phase
+- **Execution** — Verifier, TDD Mode, Code Review, Code Review Depth _(conditional — only when Code Review is on)_, UI Review
+- **Docs & Output** — Commit Docs, Skip Discuss, Worktrees
+- **Features** — Intel, Graphify
+- **Model & Pipeline** — Model Profile, Auto-Advance, Branching
+- **Misc** — Context Warnings, Research Qs
+
+All answers are merged via `gsd-sdk query config-set` into the resolved project config path (`.planning/config.json` for a standard install, or `.planning/workstreams/<active>/config.json` when a workstream is active), preserving unrelated keys. After confirmation, the user may save the full settings object to `~/.gsd/defaults.json` so future `/gsd-new-project` runs start from the same baseline.
 
 ```bash
 /gsdcn-settings                       # Interactive config
 ```
+
+### `/gsd-settings-advanced`
+
+Interactive configuration of power-user knobs — plan bounce, subagent timeouts, branch templates, cross-AI delegation, context window, and runtime output. Use after `/gsd-settings` once the common-case toggles are dialed in.
+
+Six sections, each a focused prompt batch:
+
+| Section | Keys |
+|---------|------|
+| Planning Tuning | `workflow.plan_bounce`, `workflow.plan_bounce_passes`, `workflow.plan_bounce_script`, `workflow.subagent_timeout`, `workflow.inline_plan_threshold` |
+| Execution Tuning | `workflow.node_repair`, `workflow.node_repair_budget`, `workflow.auto_prune_state` |
+| Discussion Tuning | `workflow.max_discuss_passes` |
+| Cross-AI Execution | `workflow.cross_ai_execution`, `workflow.cross_ai_command`, `workflow.cross_ai_timeout` |
+| Git Customization | `git.base_branch`, `git.phase_branch_template`, `git.milestone_branch_template` |
+| Runtime / Output | `response_language`, `context_window`, `search_gitignored`, `graphify.build_timeout` |
+
+Current values are pre-selected; an empty input keeps the existing value. Numeric fields reject non-numeric input and re-prompt. Null-allowed fields (`plan_bounce_script`, `cross_ai_command`, `response_language`) accept an empty input as a clear. Writes route through `gsd-sdk query config-set`, which preserves every unrelated key.
+
+```bash
+/gsd-settings-advanced              # Six-section interactive config
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for the full schema and defaults.
+
+### `/gsd-settings-integrations`
+
+Interactive configuration of third-party integrations and cross-tool routing.
+Distinct from `/gsd-settings` (workflow toggles) — this command handles
+connectivity: API keys, reviewer CLI routing, and agent-skill injection.
+
+Covers:
+
+- **Search integrations:** `brave_search`, `firecrawl`, `exa_search` API keys,
+  and the `search_gitignored` toggle.
+- **Code-review CLI routing:** `review.models.{claude,codex,gemini,opencode}`
+  — a shell command per reviewer flavor.
+- **Agent-skill injection:** `agent_skills.<agent-type>` — skill names
+  injected into an agent's spawn frontmatter. Agent-type slugs are validated
+  against `[a-zA-Z0-9_-]+` so path separators and shell metacharacters are
+  rejected.
+
+API keys are stored plaintext in `.planning/config.json` but displayed masked
+(`****<last-4>`) in every interactive output, confirmation table, and
+`config-set` stdout/stderr line. Plaintext is never echoed, never logged,
+and never written to any file outside `config.json` by this workflow.
+
+```bash
+/gsd-settings-integrations           # Interactive config (three sections)
+```
+
+See [`docs/CONFIGURATION.md`](CONFIGURATION.md) for the per-field reference and
+[`docs/CLI-TOOLS.md`](CLI-TOOLS.md) for the reviewer-CLI routing contract.
 
 ### `/gsdcn-set-profile`
 

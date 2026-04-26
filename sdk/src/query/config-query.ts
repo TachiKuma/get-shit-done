@@ -79,7 +79,7 @@ export function getAgentToModelMapForProfile(normalizedProfile: string): Record<
  * @returns QueryResult with the config value at the given path
  * @throws GSDError with Validation classification if key missing or not found
  */
-export const configGet: QueryHandler = async (args, projectDir) => {
+export const configGet: QueryHandler = async (args, projectDir, _workstream) => {
   const keyPath = args[0];
   if (!keyPath) {
     throw new GSDError('Usage: config-get <key.path>', ErrorClassification.Validation);
@@ -104,12 +104,14 @@ export const configGet: QueryHandler = async (args, projectDir) => {
   let current: unknown = config;
   for (const key of keys) {
     if (current === undefined || current === null || typeof current !== 'object') {
-      throw new GSDError(`Key not found: ${keyPath}`, ErrorClassification.Validation);
+      // UNIX convention (cf. `git config --get`): missing key exits 1, not 10.
+      // See issue #2544 — callers use `if ! gsd-sdk query config-get k; then` patterns.
+      throw new GSDError(`Key not found: ${keyPath}`, ErrorClassification.Execution);
     }
     current = (current as Record<string, unknown>)[key];
   }
   if (current === undefined) {
-    throw new GSDError(`Key not found: ${keyPath}`, ErrorClassification.Validation);
+    throw new GSDError(`Key not found: ${keyPath}`, ErrorClassification.Execution);
   }
 
   return { data: current };
@@ -127,7 +129,7 @@ export const configGet: QueryHandler = async (args, projectDir) => {
  * @param projectDir - Project root directory
  * @returns QueryResult with `{ path: string }` absolute or project-relative resolution via planningPaths
  */
-export const configPath: QueryHandler = async (_args, projectDir) => {
+export const configPath: QueryHandler = async (_args, projectDir, _workstream) => {
   const paths = planningPaths(projectDir);
   return { data: { path: paths.config } };
 };

@@ -190,6 +190,20 @@ function resolveLocalizedDisplayPair(namespace, skillName, options = {}) {
   };
 }
 
+// #2517 — runtime-aware tier resolution shared with core.cjs.
+// Hoisted to top with absolute __dirname-based paths so `gsd install codex` works
+// when invoked via npm global install (cwd is the user's project, not the gsd repo
+// root). Inline `require('../get-shit-done/...')` from inside install functions
+// works only because Node resolves it relative to the install.js file regardless
+// of cwd, but keeping the require at the top makes the dependency explicit and
+// surfaces resolution failures at process start instead of at first install call.
+const _gsdLibDir = path.join(__dirname, '..', 'get-shit-done', 'bin', 'lib');
+const { MODEL_PROFILES: GSD_MODEL_PROFILES } = require(path.join(_gsdLibDir, 'model-profiles.cjs'));
+const {
+  RUNTIME_PROFILE_MAP: GSD_RUNTIME_PROFILE_MAP,
+  resolveTierEntry: gsdResolveTierEntry,
+} = require(path.join(_gsdLibDir, 'core.cjs'));
+
 // Parse args
 const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
@@ -794,6 +808,172 @@ function readGsdGlobalModelOverrides() {
   }
 }
 
+/**
+ * Effective per-agent model_overrides for the Codex / OpenCode install paths.
+ *
+ * Merges `~/.gsd/defaults.json` (global) with per-project
+ * `<project>/.planning/config.json`. Per-project keys win on conflict so a
+ * user can tune a single agent's model in one repo without re-setting the
+ * global defaults for every other repo. Non-conflicting keys from both
+ * sources are preserved.
+ *
+ * This is the fix for #2256: both adapters previously read only the global
+ * file, so a per-project `model_overrides` (the common case the reporter
+ * described — a per-project override for `gsd-codebase-mapper` in
+ * `.planning/config.json`) was silently dropped and child agents inherited
+ * the session default.
+ *
+ * `targetDir` is the consuming runtime's install root (e.g. `~/.codex` for
+ * a global install, or `<project>/.codex` for a local install). We walk up
+ * from there looking for `.planning/` so both cases resolve the correct
+ * project root. When `targetDir` is null/undefined only the global file is
+ * consulted (matches prior behavior for code paths that have no project
+ * context).
+ *
+ * Returns a plain `{ agentName: modelId }` object, or `null` when neither
+ * source defines `model_overrides`.
+ */
+function readGsdEffectiveModelOverrides(targetDir = null) {
+  const global = readGsdGlobalModelOverrides();
+
+  let projectOverrides = null;
+  if (targetDir) {
+    let probeDir = path.resolve(targetDir);
+    for (let depth = 0; depth < 8; depth += 1) {
+      const candidate = path.join(probeDir, '.planning', 'config.json');
+      if (fs.existsSync(candidate)) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+          if (parsed && typeof parsed === 'object' && parsed.model_overrides
+              && typeof parsed.model_overrides === 'object') {
+            projectOverrides = parsed.model_overrides;
+          }
+        } catch {
+          // Malformed config.json — fall back to global; readGsdRuntimeProfileResolver
+          // surfaces a parse warning via _readGsdConfigFile already.
+        }
+        break;
+      }
+      const parent = path.dirname(probeDir);
+      if (parent === probeDir) break;
+      probeDir = parent;
+    }
+  }
+
+  if (!global && !projectOverrides) return null;
+  // Per-project wins on conflict; preserve non-conflicting global keys.
+  return { ...(global || {}), ...(projectOverrides || {}) };
+}
+
+/**
+ * #2517 — Read a single GSD config file (defaults.json or per-project
+ * config.json) into a plain object, returning null on missing/empty files
+ * and warning to stderr on JSON parse failures so silent corruption can't
+ * mask broken configs (review finding #5).
+ */
+function _readGsdConfigFile(absPath, label) {
+  if (!fs.existsSync(absPath)) return null;
+  let raw;
+  try {
+    raw = fs.readFileSync(absPath, 'utf-8');
+  } catch (err) {
+    process.stderr.write(`gsd: warning — could not read ${label} (${absPath}): ${err.message}\n`);
+    return null;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    process.stderr.write(`gsd: warning — invalid JSON in ${label} (${absPath}): ${err.message}\n`);
+    return null;
+  }
+}
+
+/**
+ * #2517 — Build a runtime-aware tier resolver for the install path.
+ *
+ * Probes BOTH per-project `<targetDir>/.planning/config.json` AND
+ * `~/.gsd/defaults.json`, with per-project keys winning over global. This
+ * matches `loadConfig`'s precedence and is the only way the PR's headline claim
+ * — "set runtime in .planning/config.json and the Codex TOML emit picks it up"
+ * — actually holds end-to-end (review finding #1).
+ *
+ * `targetDir` should be the consuming runtime's install root — install code
+ * passes `path.dirname(<runtime root>)` so `.planning/config.json` resolves
+ * relative to the user's project. When `targetDir` is null/undefined, only the
+ * global defaults are consulted.
+ *
+ * Returns null if no `runtime` is configured (preserves prior behavior — only
+ * model_overrides is embedded, no tier/reasoning-effort inference). Returns
+ * null when `model_profile` is `inherit` so the literal alias passes through
+ * unchanged.
+ *
+ * Returns { runtime, resolve(agentName) -> { model, reasoning_effort? } | null }
+ */
+function readGsdRuntimeProfileResolver(targetDir = null) {
+  const homeDefaults = _readGsdConfigFile(
+    path.join(os.homedir(), '.gsd', 'defaults.json'),
+    '~/.gsd/defaults.json'
+  );
+
+  // Per-project config probe. Resolve the project root by walking up from
+  // targetDir until we hit a `.planning/` directory; this covers both the
+  // common case (caller passes the project root) and the case where caller
+  // passes a nested install dir like `<root>/.codex/`.
+  let projectConfig = null;
+  if (targetDir) {
+    let probeDir = path.resolve(targetDir);
+    for (let depth = 0; depth < 8; depth += 1) {
+      const candidate = path.join(probeDir, '.planning', 'config.json');
+      if (fs.existsSync(candidate)) {
+        projectConfig = _readGsdConfigFile(candidate, '.planning/config.json');
+        break;
+      }
+      const parent = path.dirname(probeDir);
+      if (parent === probeDir) break;
+      probeDir = parent;
+    }
+  }
+
+  // Per-project wins. Only fall back to ~/.gsd/defaults.json when the project
+  // didn't set the field. Field-level merge (not whole-object replace) so a
+  // user can keep `runtime` global while overriding only `model_profile` per
+  // project, and vice versa.
+  const merged = {
+    runtime:
+      (projectConfig && projectConfig.runtime) ||
+      (homeDefaults && homeDefaults.runtime) ||
+      null,
+    model_profile:
+      (projectConfig && projectConfig.model_profile) ||
+      (homeDefaults && homeDefaults.model_profile) ||
+      'balanced',
+    model_profile_overrides:
+      (projectConfig && projectConfig.model_profile_overrides) ||
+      (homeDefaults && homeDefaults.model_profile_overrides) ||
+      null,
+  };
+
+  if (!merged.runtime) return null;
+
+  const profile = String(merged.model_profile).toLowerCase();
+  if (profile === 'inherit') return null;
+
+  return {
+    runtime: merged.runtime,
+    resolve(agentName) {
+      const agentModels = GSD_MODEL_PROFILES[agentName];
+      if (!agentModels) return null;
+      const tier = agentModels[profile] || agentModels.balanced;
+      if (!tier) return null;
+      return gsdResolveTierEntry({
+        runtime: merged.runtime,
+        tier,
+        overrides: merged.model_profile_overrides,
+      });
+    },
+  };
+}
+
 // Cache for attribution settings (populated once per runtime during install)
 const attributionCache = new Map();
 
@@ -1051,14 +1231,18 @@ function convertCopilotToolName(claudeTool) {
  */
 function convertClaudeToCopilotContent(content, isGlobal = false) {
   let c = content;
-  // CONV-06: Path replacement — most specific first to avoid substring matches
+  // CONV-06: Path replacement — most specific first to avoid substring matches.
+  // Handle both `~/.claude/foo` (trailing slash) and bare `~/.claude` forms in
+  // one pass via a capture group, matching the approach used by Antigravity,
+  // OpenCode, Kilo, and Codex converters (issue #2545).
   if (isGlobal) {
-    c = c.replace(/\$HOME\/\.claude\//g, '$HOME/.copilot/');
-    c = c.replace(/~\/\.claude\//g, '~/.copilot/');
+    c = c.replace(/\$HOME\/\.claude(\/|\b)/g, '$HOME/.copilot$1');
+    c = c.replace(/~\/\.claude(\/|\b)/g, '~/.copilot$1');
   } else {
     c = c.replace(/\$HOME\/\.claude\//g, '.github/');
     c = c.replace(/~\/\.claude\//g, '.github/');
-    c = c.replace(/~\/\.claude\n/g, '.github/');
+    c = c.replace(/\$HOME\/\.claude\b/g, '.github');
+    c = c.replace(/~\/\.claude\b/g, '.github');
   }
   c = c.replace(/\.\/\.claude\//g, './.github/');
   c = c.replace(/\.claude\//g, '.github/');
@@ -1104,10 +1288,30 @@ function convertClaudeCommandToCopilotSkill(content, skillName, isGlobal = false
 }
 
 /**
+ * Map a skill directory name (gsd-<cmd>) to the frontmatter `name:` used
+ * by Claude Code as the skill identity. Workflows emit `Skill(skill="gsd:<cmd>")`
+ * (colon form) and Claude Code resolves skills by frontmatter `name:`, not
+ * directory name — so emit colon form here. Directory stays hyphenated for
+ * Windows path safety. See #2643.
+ *
+ * Codex must NOT use this helper: its adapter invokes skills as `$gsd-<cmd>`
+ * (shell-var syntax) and a colon would terminate the variable name. Codex
+ * keeps the hyphen form via `yamlQuote(skillName)` directly.
+ */
+function skillFrontmatterName(skillDirName) {
+  if (typeof skillDirName !== 'string') return skillDirName;
+  // Idempotent on already-colon form.
+  if (skillDirName.includes(':')) return skillDirName;
+  // Only rewrite the first hyphen after the `gsd` prefix.
+  return skillDirName.replace(/^gsd-/, 'gsd:');
+}
+
+/**
  * Convert a Claude command (.md) to a Claude skill (SKILL.md).
  * Claude Code is the native format, so minimal conversion needed —
- * preserve allowed-tools as YAML multiline list, preserve argument-hint,
- * convert name from gsd:xxx to gsd-xxx format.
+ * preserve allowed-tools as YAML multiline list, preserve argument-hint.
+ * Emits `name: gsd:<cmd>` (colon) so Skill(skill="gsd:<cmd>") calls in
+ * workflows resolve on flat-skills installs — see #2643.
  */
 function convertClaudeCommandToClaudeSkill(content, skillName, options = {}) {
   const { frontmatter, body } = extractFrontmatterAndBody(content);
@@ -1133,7 +1337,8 @@ function convertClaudeCommandToClaudeSkill(content, skillName, options = {}) {
   }
 
   // Reconstruct frontmatter in Claude skill format
-  let fm = `---\nname: ${skillName}\ndescription: ${yamlQuote(displayPair.description)}\nmetadata:\n  short-description: ${yamlQuote(displayPair.shortDescription)}\n`;
+  const frontmatterName = skillFrontmatterName(skillName);
+  let fm = `---\nname: ${frontmatterName}\ndescription: ${yamlQuote(displayPair.description)}\nmetadata:\n  short-description: ${yamlQuote(displayPair.shortDescription)}\n`;
   if (argumentHint) fm += `argument-hint: ${yamlQuote(argumentHint)}\n`;
   if (agent) fm += `agent: ${agent}\n`;
   if (toolsBlock) fm += toolsBlock;
@@ -1869,6 +2074,14 @@ function convertClaudeToCodexMarkdown(content) {
   converted = converted.replace(/\$HOME\/\.claude\//g, '$HOME/.codex/');
   converted = converted.replace(/~\/\.claude\//g, '~/.codex/');
   converted = converted.replace(/\.\/\.claude\//g, './.codex/');
+  // Bare/project-relative .claude/... references (#2639). Covers strings like
+  // "check `.claude/skills/`" where there is no ~/, $HOME/, or ./ anchor.
+  // Negative lookbehind prevents double-replacing already-anchored forms and
+  // avoids matching inside URLs or other slash-prefixed paths.
+  converted = converted.replace(/(?<![A-Za-z0-9_\-./~$])\.claude\//g, '.codex/');
+  // `.claudeignore` → `.codexignore` (#2639). Codex honors its own ignore
+  // file; leaving the Claude-specific name is misleading in agent prompts.
+  converted = converted.replace(/\.claudeignore\b/g, '.codexignore');
   // Runtime-neutral agent name replacement (#766)
   converted = neutralizeAgentReferences(converted, 'AGENTS.md');
   return converted;
@@ -1905,8 +2118,16 @@ GSD workflows use \`Task(...)\` (Claude Code syntax). Translate to Codex collabo
 
 Direct mapping:
 - \`Task(subagent_type="X", prompt="Y")\` → \`spawn_agent(agent_type="X", message="Y")\`
-- \`Task(model="...")\` → omit (Codex uses per-role config, not inline model selection)
+- \`Task(model="...")\` → omit. \`spawn_agent\` has no inline \`model\` parameter;
+  GSD embeds the resolved per-agent model directly into each agent's \`.toml\`
+  at install time so \`model_overrides\` from \`.planning/config.json\` and
+  \`~/.gsd/defaults.json\` are honored automatically by Codex's agent router.
 - \`fork_context: false\` by default — GSD agents load their own context via \`<files_to_read>\` blocks
+
+Spawn restriction:
+- Codex restricts \`spawn_agent\` to cases where the user has explicitly
+  requested sub-agents. When automatic spawning is not permitted, do the
+  work inline in the current agent rather than attempting to force a spawn.
 
 Parallel fan-out:
 - Spawn multiple agents → collect agent IDs → \`wait(ids)\` for all to complete
@@ -1970,7 +2191,7 @@ purpose: ${toSingleLine(description)}
  * Sets required agent metadata, sandbox_mode, and developer_instructions
  * from the agent markdown content.
  */
-function generateCodexAgentToml(agentName, agentContent, modelOverrides = null) {
+function generateCodexAgentToml(agentName, agentContent, modelOverrides = null, runtimeResolver = null) {
   const sandboxMode = CODEX_AGENT_SANDBOX[agentName] || 'read-only';
   const { frontmatter, body } = extractFrontmatterAndBody(agentContent);
   const frontmatterText = frontmatter || '';
@@ -1989,9 +2210,20 @@ function generateCodexAgentToml(agentName, agentContent, modelOverrides = null) 
   // Embed model override when configured in ~/.gsd/defaults.json so that
   // model_overrides is respected on Codex (which uses static TOML, not inline
   // Task() model parameters). See #2256.
+  // Precedence: per-agent model_overrides > runtime-aware tier resolution (#2517).
   const modelOverride = modelOverrides?.[resolvedName] || modelOverrides?.[agentName];
   if (modelOverride) {
     lines.push(`model = ${JSON.stringify(modelOverride)}`);
+  } else if (runtimeResolver) {
+    // #2517 — runtime-aware tier resolution. Embeds Codex-native model + reasoning_effort
+    // from RUNTIME_PROFILE_MAP / model_profile_overrides for the configured tier.
+    const entry = runtimeResolver.resolve(resolvedName) || runtimeResolver.resolve(agentName);
+    if (entry?.model) {
+      lines.push(`model = ${JSON.stringify(entry.model)}`);
+      if (entry.reasoning_effort) {
+        lines.push(`model_reasoning_effort = ${JSON.stringify(entry.reasoning_effort)}`);
+      }
+    }
   }
 
   // Agent prompts contain raw backslashes in regexes and shell snippets.
@@ -2019,7 +2251,10 @@ function generateCodexConfigBlock(agents, targetDir) {
   ];
 
   for (const { name, description } of agents) {
-    lines.push(`[agents.${name}]`);
+    // #2645 — Codex schema requires [[agents]] array-of-tables, not [agents.<name>] maps.
+    // Emitting [agents.<name>] produces `invalid type: map, expected a sequence` on load.
+    lines.push(`[[agents]]`);
+    lines.push(`name = ${JSON.stringify(name)}`);
     lines.push(`description = ${JSON.stringify(description)}`);
     lines.push(`config_file = "${agentsPrefix}/${name}.toml"`);
     lines.push('');
@@ -2028,8 +2263,39 @@ function generateCodexConfigBlock(agents, targetDir) {
   return lines.join('\n');
 }
 
+/**
+ * Strip any managed GSD agent sections from a TOML string.
+ *
+ * Handles BOTH shapes so reinstall self-heals broken legacy configs:
+ *   - Legacy: `[agents.gsd-*]` single-keyed map tables (pre-#2645).
+ *   - Current: `[[agents]]` array-of-tables whose `name = "gsd-*"`.
+ *
+ * A section runs from its header to the next `[` header or EOF.
+ */
 function stripCodexGsdAgentSections(content) {
-  return content.replace(/^\[agents\.gsd-[^\]]+\]\n(?:(?!\[)[^\n]*\n?)*/gm, '');
+  // Use the TOML-aware section parser so we never absorb adjacent user-authored
+  // tables — even if their headers are indented or otherwise oddly placed.
+  const sections = getTomlTableSections(content).filter((section) => {
+    // Legacy `[agents.gsd-<name>]` map tables (pre-#2645).
+    if (!section.array && /^agents\.gsd-/.test(section.path)) {
+      return true;
+    }
+
+    // Current `[[agents]]` array-of-tables — only strip blocks whose
+    // `name = "gsd-..."`, preserving user-authored [[agents]] entries.
+    if (section.array && section.path === 'agents') {
+      const body = content.slice(section.headerEnd, section.end);
+      const nameMatch = body.match(/^[ \t]*name[ \t]*=[ \t]*["']([^"']+)["']/m);
+      return Boolean(nameMatch && /^gsd-/.test(nameMatch[1]));
+    }
+
+    return false;
+  });
+
+  return removeContentRanges(
+    content,
+    sections.map(({ start, end }) => ({ start, end })),
+  );
 }
 
 /**
@@ -2727,13 +2993,27 @@ function isLegacyGsdAgentsSection(body) {
 
 function stripLeakedGsdCodexSections(content) {
   const leakedSections = getTomlTableSections(content)
-    .filter((section) =>
-      section.path.startsWith('agents.gsd-') ||
-      (
+    .filter((section) => {
+      // Legacy [agents.gsd-<name>] map tables (pre-#2645).
+      if (!section.array && section.path.startsWith('agents.gsd-')) return true;
+
+      // Legacy bare [agents] table with only the old max_threads/max_depth keys.
+      if (
+        !section.array &&
         section.path === 'agents' &&
         isLegacyGsdAgentsSection(content.slice(section.headerEnd, section.end))
-      )
-    );
+      ) return true;
+
+      // Current [[agents]] array-of-tables whose name is gsd-*. Preserve
+      // user-authored [[agents]] entries (other names) untouched.
+      if (section.array && section.path === 'agents') {
+        const body = content.slice(section.headerEnd, section.end);
+        const nameMatch = body.match(/^[ \t]*name[ \t]*=[ \t]*["']([^"']+)["']/m);
+        if (nameMatch && /^gsd-/.test(nameMatch[1])) return true;
+      }
+
+      return false;
+    });
 
   if (leakedSections.length === 0) {
     return content;
@@ -3214,25 +3494,37 @@ function installCodexConfig(targetDir, agentsSrc) {
 
   for (const file of agentEntries) {
     let content = fs.readFileSync(path.join(agentsSrc, file), 'utf8');
-    // Replace full .claude/get-shit-done prefix so path resolves to codex GSD install
+    // Replace full .claude/get-shit-done prefix so path resolves to the Codex
+    // GSD install before generic .claude → .codex conversion rewrites it.
     content = content.replace(/~\/\.claude\/get-shit-done\//g, codexGsdPath);
     content = content.replace(/\$HOME\/\.claude\/get-shit-done\//g, codexGsdPath);
-    // Replace remaining .claude paths with .codex equivalents (#2320).
-    // Capture group handles both trailing-slash form (~/.claude/) and
-    // bare end-of-string form (~/.claude) in a single pass.
-    content = content.replace(/\$HOME\/\.claude(\/|$)/g, '$HOME/.codex$1');
-    content = content.replace(/~\/\.claude(\/|$)/g, '~/.codex$1');
-    content = content.replace(/\.\/\.claude(\/|$)/g, './.codex$1');
+    // Route TOML emit through the same full Claude→Codex conversion pipeline
+    // used on the `.md` emit path (#2639). Covers: slash-command rewrites,
+    // $ARGUMENTS → {{GSD_ARGS}}, /clear removal, anchored and bare .claude/
+    // paths, .claudeignore → .codexignore, and standalone "Claude" /
+    // CLAUDE.md neutralization via neutralizeAgentReferences(..., 'AGENTS.md').
+    content = convertClaudeToCodexMarkdown(content);
     const { frontmatter } = extractFrontmatterAndBody(content);
     const name = extractFrontmatterField(frontmatter, 'name') || file.replace('.md', '');
     const description = extractFrontmatterField(frontmatter, 'description') || '';
 
     agents.push({ name, description: toSingleLine(description) });
 
-    // Pass model overrides from ~/.gsd/defaults.json so Codex TOML files
+    // Pass model overrides from both per-project `.planning/config.json` and
+    // `~/.gsd/defaults.json` (project wins on conflict) so Codex TOML files
     // embed the configured model — Codex cannot receive model inline (#2256).
-    const modelOverrides = readGsdGlobalModelOverrides();
-    const tomlContent = generateCodexAgentToml(name, content, modelOverrides);
+    // Previously only the global file was read, which silently dropped the
+    // per-project override the reporter had set for gsd-codebase-mapper.
+    // #2517 — also pass the runtime-aware tier resolver so profile tiers can
+    // resolve to Codex-native model IDs + reasoning_effort when `runtime: "codex"`
+    // is set in defaults.json.
+    const modelOverrides = readGsdEffectiveModelOverrides(targetDir);
+    // Pass `targetDir` so per-project .planning/config.json wins over global
+    // ~/.gsd/defaults.json — without this, the PR's headline claim that
+    // setting runtime in the project config reaches the Codex emit path is
+    // false (review finding #1).
+    const runtimeResolver = readGsdRuntimeProfileResolver(targetDir);
+    const tomlContent = generateCodexAgentToml(name, content, modelOverrides, runtimeResolver);
     fs.writeFileSync(path.join(agentsTomlDir, `${name}.toml`), tomlContent);
   }
 
@@ -5973,9 +6265,13 @@ function install(isGlobal, runtime = 'claude') {
         content = processAttribution(content, getCommitAttribution(runtime));
         // Convert frontmatter for runtime compatibility (agents need different handling)
         if (isOpencode) {
-          // Resolve per-agent model override from ~/.gsd/defaults.json (#2256)
+          // Resolve per-agent model override from BOTH per-project
+          // `.planning/config.json` and `~/.gsd/defaults.json`, with
+          // per-project winning on conflict (#2256). Without the per-project
+          // probe, an override set in `.planning/config.json` was silently
+          // ignored and the child inherited OpenCode's default model.
           const _ocAgentName = entry.name.replace(/\.md$/, '');
-          const _ocModelOverrides = readGsdGlobalModelOverrides();
+          const _ocModelOverrides = readGsdEffectiveModelOverrides(targetDir);
           const _ocModelOverride = _ocModelOverrides?.[_ocAgentName] || null;
           content = convertClaudeToOpencodeFrontmatter(content, { isAgent: true, modelOverride: _ocModelOverride });
         } else if (isKilo) {
@@ -6235,10 +6531,13 @@ function install(isGlobal, runtime = 'claude') {
         `command = "${brandEnvPrefix}node ${updateCheckScript}"${eol}`;
 
       // Migrate legacy gsd-update-check entries from prior installs (#1755 followup)
-      // Remove stale hook blocks that used the inverted filename or wrong path
+      // Remove stale hook blocks that used the inverted filename or wrong path.
+      // Single \r?\n-aware regex handles LF, CRLF, and block-at-file-start (#2698).
       if (configContent.includes('gsd-update-check')) {
-        configContent = configContent.replace(/\n# GSD Hooks\n\[\[hooks\]\]\nevent = "SessionStart"\ncommand = "node [^\n]*gsd-update-check\.js"\n/g, '\n');
-        configContent = configContent.replace(/\r\n# GSD Hooks\r\n\[\[hooks\]\]\r\nevent = "SessionStart"\r\ncommand = "node [^\r\n]*gsd-update-check\.js"\r\n/g, '\r\n');
+        configContent = configContent.replace(
+          /(?:\r?\n|^)# GSD Hooks\r?\n\[\[hooks\]\]\r?\nevent = "SessionStart"\r?\ncommand = "node [^\r\n]*gsd-update-check\.js"\r?\n/gm,
+          (match) => (match.startsWith('\r\n') ? '\r\n' : match.startsWith('\n') ? '\n' : ''),
+        );
       }
 
       if (hasEnabledCodexHooksFeature(configContent) && !configContent.includes('gsd-check-update')) {
@@ -6314,9 +6613,13 @@ function install(isGlobal, runtime = 'claude') {
     return;
   }
   const settings = validateHookFields(cleanupOrphanedHooks(rawSettings));
-  // Local installs anchor paths to $CLAUDE_PROJECT_DIR so hooks resolve
-  // correctly regardless of the shell's current working directory (#1906).
-  const localPrefix = '"$CLAUDE_PROJECT_DIR"/' + dirName;
+  // Local installs anchor hook paths so they resolve regardless of cwd (#1906).
+  // Claude Code sets $CLAUDE_PROJECT_DIR; Gemini/Antigravity do not — and on
+  // Windows their own substitution logic doubles the path (#2557). Those runtimes
+  // run project hooks with the project dir as cwd, so bare relative paths work.
+  const localPrefix = (runtime === 'gemini' || runtime === 'antigravity')
+    ? dirName
+    : '"$CLAUDE_PROJECT_DIR"/' + dirName;
   const hookOpts = { portableHooks: hasPortableHooks };
   const statuslineCommand = isGlobal
     ? buildHookCommand(targetDir, 'gsd-statusline.js', hookOpts)
@@ -6894,196 +7197,313 @@ function promptLocation(runtimes) {
 }
 
 /**
- * Build `@gsd-build/sdk` from the in-repo `sdk/` source tree and install the
- * resulting `gsd-sdk` binary globally so workflow commands that shell out to
- * `gsd-sdk query …` succeed.
+ * Check whether any common shell rc file already contains a `PATH=` line
+ * whose HOME-expanded value places `globalBin` on PATH (#2620).
  *
- * We build from source rather than `npm install -g @gsd-build/sdk` because the
- * npm-published package lags the source tree and shipping a stale SDK breaks
- * every /gsd-* command that depends on newer query handlers.
+ * Parses `~/.zshrc`, `~/.bashrc`, `~/.bash_profile`, `~/.profile` (or the
+ * override list in `rcFileNames`), matches `export PATH=` / bare `PATH=`
+ * lines, and substitutes the common HOME forms (`$HOME`, `${HOME}`, `~`)
+ * with `homeDir` before comparing each PATH segment against `globalBin`.
  *
- * Skip if --no-sdk. Skip if already on PATH (unless --sdk was explicit).
- * Failures are FATAL — we exit non-zero so install does not complete with a
- * silently broken SDK (issue #2439). Set GSD_ALLOW_OFF_PATH=1 to downgrade the
- * post-install PATH verification to a warning (exit code 2) for users with an
- * intentionally restricted PATH who will wire things up manually.
- */
-
-/**
- * Resolve `gsd-sdk` on PATH. Uses `command -v` via `sh -c` on POSIX (portable
- * across sh/bash/zsh) and `where` on Windows. Returns trimmed path or null.
- */
-function resolveGsdSdk() {
-  const { spawnSync } = require('child_process');
-  if (process.platform === 'win32') {
-    const r = spawnSync('where', ['gsd-sdk'], { encoding: 'utf-8' });
-    if (r.status === 0 && r.stdout && r.stdout.trim()) {
-      return r.stdout.trim().split('\n')[0].trim();
-    }
-    return null;
-  }
-  const r = spawnSync('sh', ['-c', 'command -v gsd-sdk'], { encoding: 'utf-8' });
-  if (r.status === 0 && r.stdout && r.stdout.trim()) {
-    return r.stdout.trim();
-  }
-  return null;
-}
-
-/**
- * Best-effort detection of the user's shell rc file for PATH remediation hints.
- */
-function detectShellRc() {
-  const path = require('path');
-  const shell = process.env.SHELL || '';
-  const home = process.env.HOME || '~';
-  if (/\/zsh$/.test(shell)) return { shell: 'zsh', rc: path.join(home, '.zshrc') };
-  if (/\/bash$/.test(shell)) return { shell: 'bash', rc: path.join(home, '.bashrc') };
-  if (/\/fish$/.test(shell)) return { shell: 'fish', rc: path.join(home, '.config', 'fish', 'config.fish') };
-  return { shell: 'sh', rc: path.join(home, '.profile') };
-}
-
-/**
- * Emit a red fatal banner and exit. Prints actionable PATH remediation when
- * the global install succeeded but the bin dir is not on PATH.
+ * Best-effort: any unreadable / malformed / non-existent rc file is ignored
+ * and the fallback is the caller's existing absolute-path suggestion. Only
+ * the `$HOME/…`, `${HOME}/…`, and `~/…` forms are handled — we do not try
+ * to fully parse bash syntax.
  *
- * If exitCode is 2, this is the "off-PATH" case and GSD_ALLOW_OFF_PATH respect
- * is applied by the caller; we only print.
+ * @param {string} globalBin  Absolute path to npm's global bin directory.
+ * @param {string} homeDir    Absolute path used to substitute HOME / ~.
+ * @param {string[]} [rcFileNames]  Override the default rc file list.
+ * @returns {boolean}         true iff any rc file adds globalBin to PATH.
  */
-function emitSdkFatal(reason, { globalBin, exitCode }) {
-  const { shell, rc } = detectShellRc();
-  const bar = '━'.repeat(72);
-  const redBold = `${red}${bold}`;
-
-  console.error('');
-  console.error(`${redBold}${bar}${reset}`);
-  console.error(`${redBold}  ✗ GSD SDK install failed — /gsd-* commands will not work${reset}`);
-  console.error(`${redBold}${bar}${reset}`);
-  console.error(`  ${red}Reason:${reset} ${reason}`);
-
-  if (globalBin) {
-    console.error('');
-    console.error(`  ${yellow}gsd-sdk was installed to:${reset}`);
-    console.error(`    ${cyan}${globalBin}${reset}`);
-    console.error('');
-    console.error(`  ${yellow}Your shell's PATH does not include this directory.${reset}`);
-    console.error(`  Add it by running:`);
-    if (shell === 'fish') {
-      console.error(`    ${cyan}fish_add_path "${globalBin}"${reset}`);
-      console.error(`    (or append to ${rc})`);
-    } else {
-      console.error(`    ${cyan}echo 'export PATH="${globalBin}:$PATH"' >> ${rc}${reset}`);
-      console.error(`    ${cyan}source ${rc}${reset}`);
-    }
-    console.error('');
-    console.error(`  Then verify: ${cyan}command -v gsd-sdk${reset}`);
-    if (exitCode === 2) {
-      console.error('');
-      console.error(`  ${dim}(GSD_ALLOW_OFF_PATH=1 set → exit ${exitCode} instead of hard failure)${reset}`);
-    }
-  } else {
-    console.error('');
-    console.error(`  Build manually to retry:`);
-    console.error(`    ${cyan}cd <install-dir>/sdk && npm install && npm run build && npm install -g .${reset}`);
-  }
-
-  console.error(`${redBold}${bar}${reset}`);
-  console.error('');
-  process.exit(exitCode);
-}
-
-function installSdkIfNeeded() {
-  if (hasNoSdk) {
-    console.log(`\n  ${dim}Skipping GSD SDK install (--no-sdk)${reset}`);
-    return;
-  }
-
-  const { spawnSync } = require('child_process');
+function homePathCoveredByRc(globalBin, homeDir, rcFileNames) {
+  if (!globalBin || !homeDir) return false;
   const path = require('path');
   const fs = require('fs');
 
-  if (!hasSdk) {
-    const resolved = resolveGsdSdk();
-    if (resolved) {
-      console.log(`  ${green}✓${reset} GSD SDK already installed (gsd-sdk on PATH at ${resolved})`);
-      return;
+  const normalise = (p) => {
+    if (!p) return '';
+    let n = p.replace(/[\\/]+$/g, '');
+    if (n === '') n = p.startsWith('/') ? '/' : p;
+    return n;
+  };
+
+  const targetAbs = normalise(path.resolve(globalBin));
+  const homeAbs = path.resolve(homeDir);
+  const files = rcFileNames || ['.zshrc', '.bashrc', '.bash_profile', '.profile'];
+
+  const expandHome = (segment) => {
+    let s = segment;
+    s = s.replace(/\$\{HOME\}/g, homeAbs);
+    s = s.replace(/\$HOME/g, homeAbs);
+    if (s.startsWith('~/') || s === '~') {
+      s = s === '~' ? homeAbs : path.join(homeAbs, s.slice(2));
+    }
+    return s;
+  };
+
+  // Match `PATH=…` (optionally prefixed with `export `). The RHS captures
+  // through end-of-line; surrounding quotes are stripped before splitting.
+  const assignRe = /^\s*(?:export\s+)?PATH\s*=\s*(.+?)\s*$/;
+
+  for (const name of files) {
+    const rcPath = path.join(homeAbs, name);
+    let content;
+    try {
+      content = fs.readFileSync(rcPath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.replace(/^\s+/, '');
+      if (line.startsWith('#')) continue;
+
+      const m = assignRe.exec(rawLine);
+      if (!m) continue;
+
+      let rhs = m[1];
+      if ((rhs.startsWith('"') && rhs.endsWith('"')) ||
+          (rhs.startsWith("'") && rhs.endsWith("'"))) {
+        rhs = rhs.slice(1, -1);
+      }
+
+      for (const segment of rhs.split(':')) {
+        if (!segment) continue;
+        const trimmed = segment.trim();
+        const expanded = expandHome(trimmed);
+        if (expanded.includes('$')) continue;
+        // Skip segments that are still relative after HOME expansion. A bare
+        // `bin` entry (or `./bin`, `node_modules/.bin`, etc.) depends on the
+        // shell's cwd at lookup time — it is NOT equivalent to `$HOME/bin`,
+        // so resolving against homeAbs would produce false positives.
+        if (!path.isAbsolute(expanded)) continue;
+        try {
+          const abs = normalise(path.resolve(expanded));
+          if (abs === targetAbs) return true;
+        } catch {
+          // ignore unresolvable segments
+        }
+      }
     }
   }
 
-  // Locate the in-repo sdk/ directory relative to this installer file.
-  // For global npm installs this resolves inside the published package dir;
-  // for git-based installs (npx github:..., local clone) it resolves to the
-  // repo's sdk/ tree. Both contain the source tree because root package.json
-  // includes "sdk" in its `files` array.
-  const sdkDir = path.resolve(__dirname, '..', 'sdk');
-  const sdkPackageJson = path.join(sdkDir, 'package.json');
+  return false;
+}
 
-  if (!fs.existsSync(sdkPackageJson)) {
-    emitSdkFatal(`SDK source tree not found at ${sdkDir}.`, { globalBin: null, exitCode: 1 });
-  }
+/**
+ * Emit a PATH-export suggestion if globalBin is not already on PATH AND
+ * the user's shell rc files do not already cover it via a HOME-relative
+ * entry (#2620).
+ *
+ * Prints one of:
+ *   - nothing, if `globalBin` is already present on `process.env.PATH`
+ *   - a diagnostic "already covered via rc file" note, if an rc file has
+ *     `export PATH="$HOME/…/bin:$PATH"` (or equivalent) and the user just
+ *     needs to reopen their shell
+ *   - the absolute `echo 'export PATH="…:$PATH"' >> ~/.zshrc` suggestion,
+ *     if neither PATH nor any rc file covers globalBin
+ *
+ * Exported for tests; the installer calls this from finishInstall.
+ *
+ * @param {string} globalBin  Absolute path to npm's global bin directory.
+ * @param {string} homeDir    Absolute HOME path.
+ */
+function maybeSuggestPathExport(globalBin, homeDir) {
+  if (!globalBin || !homeDir) return;
+  const path = require('path');
 
-  console.log(`\n  ${cyan}Building GSD SDK from source (${sdkDir})…${reset}`);
-  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const pathEnv = process.env.PATH || '';
+  const targetAbs = path.resolve(globalBin).replace(/[\\/]+$/g, '') || globalBin;
+  const onPath = pathEnv.split(path.delimiter).some((seg) => {
+    if (!seg) return false;
+    const abs = path.resolve(seg).replace(/[\\/]+$/g, '') || seg;
+    return abs === targetAbs;
+  });
+  if (onPath) return;
 
-  // 1. Install sdk build-time dependencies (tsc, etc.)
-  const installResult = spawnSync(npmCmd, ['install'], { cwd: sdkDir, stdio: 'inherit' });
-  if (installResult.status !== 0) {
-    emitSdkFatal('Failed to `npm install` in sdk/.', { globalBin: null, exitCode: 1 });
-  }
-
-  // 2. Compile TypeScript → sdk/dist/
-  const buildResult = spawnSync(npmCmd, ['run', 'build'], { cwd: sdkDir, stdio: 'inherit' });
-  if (buildResult.status !== 0) {
-    emitSdkFatal('Failed to `npm run build` in sdk/.', { globalBin: null, exitCode: 1 });
-  }
-
-  // 3. Install the built package globally so `gsd-sdk` lands on PATH.
-  const globalResult = spawnSync(npmCmd, ['install', '-g', '.'], { cwd: sdkDir, stdio: 'inherit' });
-  if (globalResult.status !== 0) {
-    emitSdkFatal('Failed to `npm install -g .` from sdk/.', { globalBin: null, exitCode: 1 });
-  }
-
-  // 3a. Explicitly chmod dist/cli.js to 0o755 in the global install location.
-  // `tsc` emits files at process umask (typically 0o644 — non-executable), and
-  // `npm install -g` from a local directory does NOT chmod bin-script targets the
-  // way tarball extraction does. Without this, the `gsd-sdk` bin symlink points at
-  // a non-executable file and `command -v gsd-sdk` fails on every first install
-  // (root cause of #2453). Mirrors the pattern used for hook files in this installer.
-  try {
-    const prefixRes = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8' });
-    if (prefixRes.status === 0) {
-      const npmPrefix = (prefixRes.stdout || '').trim();
-      const sdkPkg = JSON.parse(fs.readFileSync(path.join(sdkDir, 'package.json'), 'utf-8'));
-      const sdkName = sdkPkg.name; // '@gsd-build/sdk'
-      const globalModulesDir = process.platform === 'win32'
-        ? path.join(npmPrefix, 'node_modules')
-        : path.join(npmPrefix, 'lib', 'node_modules');
-      const cliPath = path.join(globalModulesDir, sdkName, 'dist', 'cli.js');
-      try { fs.chmodSync(cliPath, 0o755); } catch (e) { /* Windows / path not found */ }
-    }
-  } catch (e) { /* Non-fatal: PATH verification in step 4 will catch any real failure */ }
-
-  // 4. Verify gsd-sdk is actually resolvable on PATH. npm's global bin dir is
-  //    not always on the current shell's PATH (Homebrew prefixes, nvm setups,
-  //    unconfigured npm prefix), so a zero exit status from `npm install -g`
-  //    alone is not proof of a working binary (issue #2439 root cause).
-  const resolved = resolveGsdSdk();
-  if (resolved) {
-    console.log(`  ${green}✓${reset} Built and installed GSD SDK from source (gsd-sdk resolved at ${resolved})`);
+  if (homePathCoveredByRc(globalBin, homeDir)) {
+    console.log(`  ${yellow}⚠${reset} ${bold}gsd-sdk${reset}'s directory is already on your PATH via an rc file entry — try reopening your shell (or ${cyan}source ~/.zshrc${reset}).`);
     return;
   }
 
-  // Off-PATH: resolve npm global bin dir for actionable remediation.
-  const prefixResult = spawnSync(npmCmd, ['config', 'get', 'prefix'], { encoding: 'utf-8' });
-  const prefix = prefixResult.status === 0 ? (prefixResult.stdout || '').trim() : null;
-  const globalBin = prefix
-    ? (process.platform === 'win32' ? prefix : path.join(prefix, 'bin'))
-    : null;
+  console.log('');
+  console.log(`  ${yellow}⚠${reset} ${bold}${globalBin}${reset} is not on your PATH.`);
+  console.log(`    Add it with one of:`);
+  console.log(`      ${cyan}echo 'export PATH="${globalBin}:$PATH"' >> ~/.zshrc${reset}`);
+  console.log(`      ${cyan}echo 'export PATH="${globalBin}:$PATH"' >> ~/.bashrc${reset}`);
+  console.log('');
+}
 
-  const allowOffPath = process.env.GSD_ALLOW_OFF_PATH === '1';
-  emitSdkFatal(
-    'Built and installed GSD SDK, but `gsd-sdk` is not on your PATH.',
-    { globalBin, exitCode: allowOffPath ? 2 : 1 },
-  );
+/**
+ * Verify the prebuilt SDK dist is present and the gsd-sdk shim is wired up.
+ *
+ * As of fix/2441-sdk-decouple, sdk/dist/ is shipped prebuilt inside the
+ * get-shit-done-cc npm tarball. The parent package declares a bin entry
+ * "gsd-sdk": "bin/gsd-sdk.js" so npm chmods the shim correctly when
+ * installing from a packed tarball — eliminating the mode-644 failure
+ * (issue #2453) and the build-from-source failure modes (#2439, #2441).
+ *
+ * This function verifies the invariant: sdk/dist/cli.js exists and is
+ * executable. If the execute bit is missing (possible in dev/clone setups
+ * where sdk/dist was committed without +x), we fix it in-place.
+ *
+ * --no-sdk skips the check entirely (back-compat).
+ * --sdk forces the check even if it would otherwise be skipped.
+ */
+/**
+ * Classify the install context for the SDK directory.
+ *
+ * Distinguishes three shapes the installer must handle differently when
+ * `sdk/dist/` is missing:
+ *
+ *   - `tarball` + `npxCache: true`
+ *       User ran `npx get-shit-done-cc@latest`. sdk/ lives under
+ *       `<npm-cache>/_npx/<hash>/node_modules/get-shit-done-cc/sdk` which
+ *       is treated as read-only by npm/npx on Windows (#2649). We MUST
+ *       NOT attempt a nested `npm install` there — it will fail with
+ *       EACCES/EPERM and produce the misleading "Failed to npm install
+ *       in sdk/" error the user reported. Point at the global upgrade.
+ *
+ *   - `tarball` + `npxCache: false`
+ *       User ran a global install (`npm i -g get-shit-done-cc`). sdk/dist
+ *       ships in the published tarball; if it's missing, the published
+ *       artifact itself is broken (see #2647). Same user-facing fix:
+ *       upgrade to latest.
+ *
+ *   - `dev-clone`
+ *       Developer running from a git clone. Keep the existing "cd sdk &&
+ *       npm install && npm run build" hint — the user is expected to run
+ *       that themselves. The installer itself never shells out to npm.
+ *
+ * Detection heuristics are path-based and side-effect-free: we look for
+ * `_npx` and `node_modules` segments that indicate a packaged install,
+ * and for a `.git` directory nearby that indicates a clone. A best-effort
+ * write probe detects read-only filesystems (tmpfile create + unlink);
+ * probe failures are treated as read-only.
+ */
+function classifySdkInstall(sdkDir) {
+  const path = require('path');
+  const fs = require('fs');
+  const segments = sdkDir.split(/[\\/]+/);
+  const npxCache = segments.includes('_npx');
+  const inNodeModules = segments.includes('node_modules');
+  const parent = path.dirname(sdkDir);
+  const hasGitNearby = fs.existsSync(path.join(parent, '.git'));
+
+  let mode;
+  if (hasGitNearby && !npxCache && !inNodeModules) {
+    mode = 'dev-clone';
+  } else if (npxCache || inNodeModules) {
+    mode = 'tarball';
+  } else {
+    mode = 'dev-clone';
+  }
+
+  let readOnly = npxCache; // assume true for npx cache
+  if (!readOnly) {
+    try {
+      const probe = path.join(sdkDir, `.gsd-write-probe-${process.pid}`);
+      fs.writeFileSync(probe, '');
+      fs.unlinkSync(probe);
+    } catch {
+      readOnly = true;
+    }
+  }
+
+  return { mode, npxCache, readOnly };
+}
+
+function installSdkIfNeeded(opts) {
+  opts = opts || {};
+  if (hasNoSdk && !opts.sdkDir) {
+    console.log(`\n  ${dim}Skipping GSD SDK check (--no-sdk)${reset}`);
+    return;
+  }
+
+  // #2678: local installs do not write to global node_modules, so the SDK
+  // global-install check is not applicable. Warn and return instead of exiting.
+  if (opts.isLocal) {
+    console.warn(`\n  ${yellow}⚠${reset}  Skipping SDK check for local install — install @gsd-build/sdk globally if you need /gsd-* CLI support.`);
+    return;
+  }
+
+  const path = require('path');
+  const fs = require('fs');
+
+  const sdkDir = opts.sdkDir || path.resolve(__dirname, '..', 'sdk');
+  const sdkCliPath = path.join(sdkDir, 'dist', 'cli.js');
+
+  if (!fs.existsSync(sdkCliPath)) {
+    const ctx = classifySdkInstall(sdkDir);
+    const bar = '━'.repeat(72);
+    const redBold = `${red}${bold}`;
+    console.error('');
+    console.error(`${redBold}${bar}${reset}`);
+    console.error(`${redBold}  ✗ GSD SDK dist not found — /gsd-* commands will not work${reset}`);
+    console.error(`${redBold}${bar}${reset}`);
+    console.error(`  ${red}Reason:${reset} sdk/dist/cli.js not found at ${sdkCliPath}`);
+    console.error('');
+
+    if (ctx.mode === 'tarball') {
+      // User install (including `npx get-shit-done-cc@latest`, which stages
+      // a read-only tarball under the npx cache). The sdk/dist/ artifact
+      // should ship in the published tarball. If it's missing, the only
+      // sane fix from the user's side is a fresh global install of a
+      // version that includes dist/. Do NOT attempt a nested `npm install`
+      // inside the (read-only) npx cache — that's the #2649 failure mode.
+      if (ctx.npxCache) {
+        console.error(`  Detected read-only npx cache install (${dim}${sdkDir}${reset}).`);
+        console.error(`  The installer will ${bold}not${reset} attempt \`npm install\` inside the npx cache.`);
+        console.error('');
+      } else {
+        console.error(`  The published tarball appears to be missing sdk/dist/ (see #2647).`);
+        console.error('');
+      }
+      console.error(`  Fix: install a version that ships sdk/dist/ globally:`);
+      console.error(`    ${cyan}npm install -g get-shit-done-cc@latest${reset}`);
+      console.error(`  Or, if you prefer a one-shot run, clear the npx cache first:`);
+      console.error(`    ${cyan}npx --yes get-shit-done-cc@latest${reset}`);
+      console.error(`  Or build from source (git clone):`);
+      console.error(`    ${cyan}git clone https://github.com/gsd-build/get-shit-done && cd get-shit-done/sdk && npm install && npm run build${reset}`);
+    } else {
+      // Dev clone: keep the existing build-from-source hint.
+      console.error(`  Running from a git clone — build the SDK first:`);
+      console.error(`    ${cyan}cd sdk && npm install && npm run build${reset}`);
+    }
+    console.error(`${redBold}${bar}${reset}`);
+    console.error('');
+    process.exit(1);
+  }
+
+  // Ensure execute bit is set. tsc emits files at 0o644; git clone preserves
+  // whatever mode was committed. Fix in-place so node-invoked paths work too.
+  try {
+    const stat = fs.statSync(sdkCliPath);
+    const isExecutable = !!(stat.mode & 0o111);
+    if (!isExecutable) {
+      fs.chmodSync(sdkCliPath, stat.mode | 0o111);
+    }
+  } catch {
+    // Non-fatal: if chmod fails (e.g. read-only fs) the shim still works via
+    // `node sdkCliPath` invocation in bin/gsd-sdk.js.
+  }
+
+  console.log(`  ${green}✓${reset} GSD SDK ready (sdk/dist/cli.js)`);
+
+  // #2620: warn if npm's global bin is not on PATH, suppressing the
+  // absolute-path suggestion when the user's rc already covers it via
+  // a HOME-relative entry (e.g. `export PATH="$HOME/.npm-global/bin:$PATH"`).
+  try {
+    const { execSync } = require('child_process');
+    const npmPrefix = execSync('npm prefix -g', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (npmPrefix) {
+      // On Windows npm prefix IS the bin dir; on POSIX it's `${prefix}/bin`.
+      const globalBin = process.platform === 'win32' ? npmPrefix : path.join(npmPrefix, 'bin');
+      maybeSuggestPathExport(globalBin, os.homedir());
+    }
+  } catch {
+    // npm not available / exec failed — silently skip the PATH advice.
+  }
 }
 
 /**
@@ -7101,14 +7521,11 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
   const primaryStatuslineResult = results.find(r => statuslineRuntimes.includes(r.runtime));
 
   const finalize = (shouldInstallStatusline) => {
-    // Build @gsd-build/sdk from the in-repo sdk/ source and install it globally
-    // so `gsd-sdk` lands on PATH. Every /gsd-* command shells out to
-    // `gsd-sdk query …`; without this, commands fail with "command not found:
-    // gsd-sdk". The npm-published @gsd-build/sdk is kept intentionally frozen
-    // at an older version; we always build from source so users get the SDK
-    // that matches the installed GSD version.
-    // Runs by default; skip with --no-sdk. Idempotent when already present.
-    installSdkIfNeeded();
+    // Verify sdk/dist/cli.js is present and executable. The dist is shipped
+    // prebuilt in the tarball (fix/2441-sdk-decouple); gsd-sdk reaches users via
+    // the parent package's bin/gsd-sdk.js shim, so no sub-install is needed.
+    // Skip with --no-sdk. Skip with isLocal (#2678 — local installs don't own global npm).
+    installSdkIfNeeded({ isLocal: !isGlobal });
 
     const printSummaries = () => {
       for (const result of results) {
@@ -7149,8 +7566,12 @@ if (isRequiredForTests) {
     stripGsdFromCodexConfig,
     mergeCodexConfig,
     installCodexConfig,
+    readGsdRuntimeProfileResolver,
+    readGsdEffectiveModelOverrides,
     install,
     uninstall,
+    installSdkIfNeeded,
+    classifySdkInstall,
     convertClaudeCommandToCodexSkill,
     convertClaudeToOpencodeFrontmatter,
     convertClaudeToKiloFrontmatter,
@@ -7178,6 +7599,7 @@ if (isRequiredForTests) {
     convertClaudeAgentToAntigravityAgent,
     copyCommandsAsAntigravitySkills,
     convertClaudeCommandToClaudeSkill,
+    skillFrontmatterName,
     copyCommandsAsClaudeSkills,
     convertClaudeToWindsurfMarkdown,
     convertClaudeCommandToWindsurfSkill,
@@ -7210,6 +7632,8 @@ if (isRequiredForTests) {
     INSTALLER_BRAND,
     MANIFEST_NAME,
     PATCHES_DIR_NAME,
+    homePathCoveredByRc,
+    maybeSuggestPathExport,
   };
 } else {
 

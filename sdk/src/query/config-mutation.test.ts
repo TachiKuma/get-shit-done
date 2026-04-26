@@ -34,6 +34,13 @@ describe('isValidConfigKey', () => {
     expect(isValidConfigKey('workflow.auto_advance').valid).toBe(true);
   });
 
+  it('accepts workflow.context_coverage_gate (#2492)', async () => {
+    const { isValidConfigKey, parseConfigValue } = await import('./config-mutation.js');
+    expect(isValidConfigKey('workflow.context_coverage_gate').valid).toBe(true);
+    expect(parseConfigValue('true')).toBe(true);
+    expect(parseConfigValue('false')).toBe(false);
+  });
+
   it('accepts wildcard agent_skills.* patterns', async () => {
     const { isValidConfigKey } = await import('./config-mutation.js');
     expect(isValidConfigKey('agent_skills.gsd-planner').valid).toBe(true);
@@ -78,6 +85,42 @@ describe('isValidConfigKey', () => {
     const r2 = isValidConfigKey('agents.nyquist_validation_enabled');
     expect(r2.valid).toBe(false);
     expect(r2.suggestion).toBe('workflow.nyquist_validation');
+  });
+
+  // #2653 — SDK/CJS config-schema drift regression.
+  // Every key accepted by the CJS config-set must also be accepted by
+  // the SDK config-set. We exercise every entry in the shared schema
+  // so drift fails this test the moment it is introduced.
+  it('#2653 — accepts every key in shared VALID_CONFIG_KEYS', async () => {
+    const { isValidConfigKey } = await import('./config-mutation.js');
+    const { VALID_CONFIG_KEYS } = await import('./config-schema.js');
+    const rejected: string[] = [];
+    for (const key of VALID_CONFIG_KEYS) {
+      const { valid } = isValidConfigKey(key);
+      if (!valid) rejected.push(key);
+    }
+    expect(rejected).toEqual([]);
+  });
+
+  it('#2653 — accepts sample dynamic keys from every DYNAMIC_KEY_PATTERN', async () => {
+    const { isValidConfigKey } = await import('./config-mutation.js');
+    const samples = [
+      'agent_skills.gsd-planner',
+      'review.models.claude',
+      'features.some_feature',
+      'claude_md_assembly.blocks.intro',
+      'model_profile_overrides.codex.opus',
+      'model_profile_overrides.codex.sonnet',
+      'model_profile_overrides.my-runtime.haiku',
+    ];
+    for (const key of samples) {
+      expect(isValidConfigKey(key).valid, `expected ${key} to be accepted`).toBe(true);
+    }
+  });
+
+  it('#2653 — accepts planning.sub_repos (CJS/docs key, previously rejected by SDK)', async () => {
+    const { isValidConfigKey } = await import('./config-mutation.js');
+    expect(isValidConfigKey('planning.sub_repos').valid).toBe(true);
   });
 });
 
