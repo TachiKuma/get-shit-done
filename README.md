@@ -20,6 +20,24 @@ npx gsdcn@latest
 
 **支持 Mac、Windows 和 Linux。**
 
+<br>
+
+![GSD Install](assets/terminal.svg)
+
+<br>
+
+*"如果你清楚地知道自己想要什么，这个工具真的能帮你做到。没有废话。"*
+
+*"我试过 SpecKit、OpenSpec 和 Taskmaster——这个工具给我带来了最好的结果。"*
+
+*"这是我在 Claude Code 上最强大的扩展。没有过度设计，就是把事情做完。"*
+
+<br>
+
+**被 Amazon、Google、Shopify 和 Webflow 的工程师所信赖。**
+
+[为什么构建它](#why-i-built-this) · [工作原理](#how-it-works) · [命令列表](#commands) · [为什么有效](#why-it-works) · [用户指南](docs/USER-GUIDE.md) · [操作演示](docs/USER-GUIDE.md#end-to-end-walkthrough)
+
 </div>
 
 ---
@@ -352,6 +370,10 @@ node bin/install.js --claude --local --gsdcn
 ---
 
 ## 故障排除
+
+> **GSD 新手？** 查看用户指南中的[端到端操作演示](docs/USER-GUIDE.md#end-to-end-walkthrough) — 包含从 `/gsd-new-project` 到 `/gsd-verify-work` 的完整示例项目输出。
+
+> **已有代码？** 先运行 `/gsd-map-codebase`。它会并行分析你的技术栈、架构、约定和问题。之后 `/gsd-new-project` 就能理解你的代码库——问题会聚焦于你要添加的内容，规划时会自动加载你的代码模式。
 
 **安装后找不到命令？**
 - 重启你的运行环境以重新加载命令/技能

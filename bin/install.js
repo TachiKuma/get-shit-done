@@ -2251,10 +2251,10 @@ function generateCodexConfigBlock(agents, targetDir) {
   ];
 
   for (const { name, description } of agents) {
-    // #2645 — Codex schema requires [[agents]] array-of-tables, not [agents.<name>] maps.
-    // Emitting [agents.<name>] produces `invalid type: map, expected a sequence` on load.
-    lines.push(`[[agents]]`);
-    lines.push(`name = ${JSON.stringify(name)}`);
+    // #2727 — Codex 0.124.0 requires [agents.<name>] struct format, not [[agents]] sequence.
+    // [[agents]] (introduced in #2645) is rejected by codex-cli 0.124.0 with
+    // "invalid type: sequence, expected struct AgentsToml in `agents`".
+    lines.push(`[agents.${name}]`);
     lines.push(`description = ${JSON.stringify(description)}`);
     lines.push(`config_file = "${agentsPrefix}/${name}.toml"`);
     lines.push('');
@@ -2266,9 +2266,9 @@ function generateCodexConfigBlock(agents, targetDir) {
 /**
  * Strip any managed GSD agent sections from a TOML string.
  *
- * Handles BOTH shapes so reinstall self-heals broken legacy configs:
- *   - Legacy: `[agents.gsd-*]` single-keyed map tables (pre-#2645).
- *   - Current: `[[agents]]` array-of-tables whose `name = "gsd-*"`.
+ * Handles BOTH shapes so reinstall self-heals configs from all GSD versions:
+ *   - Current (#2727): `[agents.gsd-*]` struct tables (Codex 0.120.0+).
+ *   - Legacy (#2645): `[[agents]]` array-of-tables whose `name = "gsd-*"`.
  *
  * A section runs from its header to the next `[` header or EOF.
  */
@@ -2276,12 +2276,12 @@ function stripCodexGsdAgentSections(content) {
   // Use the TOML-aware section parser so we never absorb adjacent user-authored
   // tables — even if their headers are indented or otherwise oddly placed.
   const sections = getTomlTableSections(content).filter((section) => {
-    // Legacy `[agents.gsd-<name>]` map tables (pre-#2645).
+    // Current `[agents.gsd-<name>]` struct tables (#2727, Codex 0.120.0+).
     if (!section.array && /^agents\.gsd-/.test(section.path)) {
       return true;
     }
 
-    // Current `[[agents]]` array-of-tables — only strip blocks whose
+    // Legacy `[[agents]]` array-of-tables (#2645) — only strip blocks whose
     // `name = "gsd-..."`, preserving user-authored [[agents]] entries.
     if (section.array && section.path === 'agents') {
       const body = content.slice(section.headerEnd, section.end);
@@ -3029,6 +3029,107 @@ function stripLeakedGsdCodexSections(content) {
 
   cleaned += content.slice(cursor);
   return collapseTomlBlankLines(cleaned);
+}
+
+/**
+ * Migrate legacy Codex [hooks] map format to [[hooks]] array-of-tables format.
+ *
+ * Codex 0.124.0 changed from the old map-style hooks config:
+ *   [hooks]
+ *     [hooks.shell]
+ *     command = "..."
+ *
+ * to the new array-of-tables format:
+ *   [[hooks]]
+ *   type = "shell"
+ *   command = "..."
+ *
+ * This function detects any non-array hooks sections in the config and
+ * converts them to the [[hooks]] format, preserving all key-value pairs and
+ * user comments. Bare [hooks] container sections (no key-value content) are
+ * dropped. User-authored [[hooks]] array entries are left untouched.
+ *
+ * Returns the migrated content, or the original content unchanged if no
+ * legacy hooks sections were found.
+ */
+function migrateCodexHooksMapFormat(content) {
+  const sections = getTomlTableSections(content);
+
+  // Find all non-array hooks sections: [hooks] or [hooks.TYPE]
+  const legacyHooksSections = sections.filter(
+    (section) => !section.array && (section.path === 'hooks' || section.path.startsWith('hooks.'))
+  );
+
+  if (legacyHooksSections.length === 0) {
+    return content;
+  }
+
+  const eol = detectLineEnding(content);
+
+  // Build [[hooks]] blocks for each [hooks.TYPE] section (skipping bare [hooks])
+  const newHooksBlocks = [];
+  for (const section of legacyHooksSections) {
+    if (section.path === 'hooks') {
+      // Bare [hooks] container — drop it (no key-value content to convert)
+      continue;
+    }
+
+    // Extract the type from the path: "hooks.shell" → "shell"
+    const type = section.path.slice('hooks.'.length);
+    const body = content.slice(section.headerEnd, section.end);
+
+    // Build [[hooks]] block: type line + original body lines
+    const block = `[[hooks]]${eol}type = "${type}"${eol}${body}`;
+    newHooksBlocks.push(block);
+  }
+
+  // Remove all legacy hooks sections from the content
+  let result = removeContentRanges(
+    content,
+    legacyHooksSections.map(({ start, end }) => ({ start, end })),
+  );
+  result = collapseTomlBlankLines(result);
+
+  // Insert new [[hooks]] blocks at the position of the first legacy section
+  // (adjusted for removed content), or append if nothing remains before EOF.
+  if (newHooksBlocks.length > 0) {
+    const insertionText = newHooksBlocks.join('');
+    // Find a good insertion point: before the first remaining table section
+    // that came after our removed hooks, or just append.
+    const remainingSections = getTomlTableSections(result);
+    const firstHooksSection = legacyHooksSections[0];
+
+    // Find the first remaining section whose original start was after the legacy hooks block
+    const anchorSection = remainingSections.find((s) => {
+      // Use content position in the result string as a heuristic
+      // We insert before the first non-hooks section if any exists
+      return s.start > 0;
+    });
+
+    // Prefer to insert the new blocks right before the first remaining table
+    // that was originally positioned after the legacy hooks area, but since
+    // positions shift after removal, we simply append before the first table
+    // header or at end-of-file.
+    if (remainingSections.length > 0) {
+      // Find where to insert: after any leading top-level keys, before first table
+      const firstTable = remainingSections[0];
+      const before = result.slice(0, firstTable.start);
+      const after = result.slice(firstTable.start);
+      const needsLeadingGap = before.length > 0 && !before.endsWith(eol + eol);
+      const needsTrailingGap = after.length > 0 && !insertionText.endsWith(eol + eol);
+      result = before +
+        (needsLeadingGap ? eol : '') +
+        insertionText +
+        (needsTrailingGap ? eol : '') +
+        after;
+    } else {
+      // No remaining sections — append
+      const needsGap = result.length > 0 && !result.endsWith(eol + eol);
+      result = result + (needsGap ? eol : '') + insertionText;
+    }
+  }
+
+  return result;
 }
 
 function normalizeCodexHooksLine(line, key) {
@@ -6514,6 +6615,16 @@ function install(isGlobal, runtime = 'claude') {
     try {
       let configContent = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf-8') : '';
       const eol = detectLineEnding(configContent);
+
+      // Migrate legacy [hooks] map format to [[hooks]] array-of-tables (#2637).
+      // Codex 0.124.0 requires [[hooks]] array-of-tables; old GSD installs wrote
+      // [hooks.shell] map tables which now cause a startup parse error.
+      const migratedContent = migrateCodexHooksMapFormat(configContent);
+      if (migratedContent !== configContent) {
+        configContent = migratedContent;
+        console.log(`  ${green}✓${reset} Migrated legacy Codex [hooks] map format to [[hooks]] array-of-tables`);
+      }
+
       const codexHooksFeature = ensureCodexHooksFeature(configContent);
       configContent = setManagedCodexHooksOwnership(codexHooksFeature.content, codexHooksFeature.ownership);
 
@@ -7581,6 +7692,7 @@ if (isRequiredForTests) {
     generateCodexAgentToml,
     generateCodexConfigBlock,
     stripGsdFromCodexConfig,
+    migrateCodexHooksMapFormat,
     mergeCodexConfig,
     installCodexConfig,
     readGsdRuntimeProfileResolver,

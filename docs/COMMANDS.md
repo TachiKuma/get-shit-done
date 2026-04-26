@@ -427,6 +427,28 @@ Append new phase to roadmap.
 /gsdcn-add-phase                      # Interactive — describe the phase
 ```
 
+### `/gsdcn-edit-phase`
+
+原地编辑现有路线图阶段的任意字段。
+
+| 参数 | 必填 | 描述 |
+|------|------|------|
+| `N` | 是 | 要编辑的阶段编号 |
+
+| 标志 | 描述 |
+|------|------|
+| `--force` | 允许编辑进行中或已完成的阶段 |
+
+**前提条件：** `.planning/ROADMAP.md` 存在，阶段 N 必须存在
+**输出：** 原地更新 ROADMAP.md 中的阶段段落（编号和位置保持不变）
+
+```bash
+/gsdcn-edit-phase 5                   # 编辑阶段 5 的任意字段（仅限未来阶段）
+/gsdcn-edit-phase 5 --force           # 即使阶段 5 正在进行中或已完成也允许编辑
+```
+
+---
+
 ### `/gsdcn-insert-phase`
 
 Insert urgent work between phases using decimal numbering.
