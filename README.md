@@ -85,26 +85,6 @@ npx gsdcn@latest
 
 ---
 
-### 保持更新
-GSDCN 迭代很快，建议定期更新：
-```bash
-npx get-shit-done-cc@latest
-```
-
-<details>
-<summary><strong>开发安装</strong></summary>
-
-克隆仓库并在本地运行安装器：
-
-```bash
-git clone https://github.com/gsd-build/get-shit-done.git
-cd get-shit-done
-node bin/install.js --claude --local
-```
-
-这样会安装到 `./.claude/`，方便你在贡献代码前测试自己的改动。
-
-</details>
 
 ## 最新功能亮点（v1.38.x）
 
@@ -353,7 +333,7 @@ GSD-CN 继承上游所有安全加固能力：
 git clone https://github.com/TachiKuma/get-shit-done.git
 cd get-shit-done
 npm run build:hooks
-node bin/install.js --claude --local --gsdcn
+node bin/gsdcn.js --claude --local --gsdcn
 ```
 
 **`build:hooks` 步骤是必须的** — 它将 hook 源码编译到 `hooks/dist/`，安装器从此目录复制文件。跳过此步骤将导致 hooks 未安装，Claude Code 中会出现 hook 错误。（npm 发布版通过 `prepublishOnly` 自动处理此步骤。）
