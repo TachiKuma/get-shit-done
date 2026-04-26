@@ -85,6 +85,38 @@ npx gsdcn@latest
 
 ---
 
+## 最新功能亮点（v1.38.x）
+
+> 基于上游 [get-shit-done v1.38.5](https://github.com/gsd-build/get-shit-done/blob/main/CHANGELOG.md)
+
+### 新增命令
+
+| 命令 | 说明 |
+|------|------|
+| `/gsdcn-ingest-docs` | 从混合 ADR/PRD/SPEC/DOC 文档一键初始化或合并 `.planning-gsdcn/` 规划结构，并行分类、合并冲突检测 |
+| `/gsdcn-plan-review-convergence` | 跨 AI 计划收敛循环——自动化 plan → review → replan 周期，直到无 HIGH 级别问题 |
+| `/gsdcn-spec-phase` | Socratic 规格细化：在讨论阶段前锁定可伪证需求，输出 SPEC.md |
+| `/gsdcn-spike` / `/gsdcn-sketch` | 快速可行性验证（spike）与 UI 设计草图（sketch），结果保存至 `.planning-gsdcn/` |
+| `/gsdcn-spike-wrap-up` / `/gsdcn-sketch-wrap-up` | 将 spike/sketch 发现打包为项目本地 skills |
+| `/gsdcn-progress --forensic` | 标准进度报告后附加 6 项完整性审计 |
+
+### SDK 与执行修复
+
+- **SDK 预构建发布**：不再需要从源码编译，安装更可靠，彻底解决 `gsd-sdk: command not found` 问题
+- **SDK executor 修复**：SUMMARY.md 现正确写入 `.planning-gsdcn/phases/{phase}/`，而非项目根目录
+- **executor_model `"inherit"` 修复**：执行时不再错误传递 `model="inherit"` 给 Task，正确继承 orchestrator 模型
+- **SDK 使用完整 agent 提示**：解决 SDK 使用精简副本（仅 17% 内容）导致行为偏差的问题
+- **验证状态读取修复**：verify session 现读取 VERIFICATION.md 的真实状态，而非仅依赖 exit code
+
+### 工具链改进
+
+- **Shell hooks 过期检测修复**：`gsd-phase-boundary.sh` 等 hooks 不再在每次会话误报为"过期"（#2136）
+- **架构文档增强**：`/gsdcn-map-codebase` 现输出含 ASCII 系统图、数据流追踪与约束列表的完整架构文档
+- **`/gsd-settings-advanced`**：新增六区块高级配置命令，涵盖计划弹跳、超时、分支模板、跨 AI 委托与上下文窗口
+- **`context_window` 配置项**：支持设置 `1000000` 启用 1M 上下文模型，并自动开启自适应上下文增强
+
+---
+
 ## 工作流程
 
 ### 1. 初始化项目
@@ -284,6 +316,37 @@ GSD-CN 继承上游所有安全加固能力：
 - **安全 JSON 解析**：格式错误的参数会被捕获
 
 > **安全文件保护：** 将含密钥的文件添加到 Claude Code 的 deny 列表，防止被读取。
+
+---
+
+## 开发安装
+
+如需从源码本地安装以测试修改或贡献代码：
+
+<details>
+<summary><strong>从源码安装（开发者）</strong></summary>
+
+克隆仓库、构建 hooks，然后运行本地安装器：
+
+```bash
+git clone https://github.com/TachiKuma/get-shit-done.git
+cd get-shit-done
+npm run build:hooks
+node bin/install.js --claude --local --gsdcn
+```
+
+**`build:hooks` 步骤是必须的** — 它将 hook 源码编译到 `hooks/dist/`，安装器从此目录复制文件。跳过此步骤将导致 hooks 未安装，Claude Code 中会出现 hook 错误。（npm 发布版通过 `prepublishOnly` 自动处理此步骤。）
+
+安装到 `./.claude/`（本地安装），适合在提交前测试修改。
+
+如需同时构建 SDK：
+
+```bash
+npm run build:sdk
+node bin/install.js --claude --local --gsdcn
+```
+
+</details>
 
 ---
 
